@@ -18,7 +18,6 @@ renderer.heading = function(text, level, raw) {
         + text
         + '</h' + level + '>\n';
 };
-    
 
 marked.setOptions({
 	renderer: renderer,
@@ -27,6 +26,16 @@ marked.setOptions({
 	sanitize: false,
 	smartLists: true,
 	smartypants: false,
+	
+	/*
+		Sigh. The API for defining a language for hljs is horrific.
+		I tried writing a mode definition for PEG.js, but gave up.
+		I'm tempted instead to write a peg.js parser for peg.js
+		And then defer to hljs to take care of the javascript portions.
+	*/
+	highlight: function (code, lang) {
+		return hljs.highlight(lang, code).value;
+  	},
 });
 
 //////////////////////////////////////////////////////////////////////////////////////////

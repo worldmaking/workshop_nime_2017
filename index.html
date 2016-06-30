@@ -8,11 +8,17 @@
 <link rel="stylesheet" href="css/normalize.css">
 <link rel="stylesheet" href="css/skeleton.css">
 <link rel="stylesheet" href="css/codemirror.css">
+<link rel="stylesheet" href="css/github.min.css">
 
 <script src="js/marked.js"></script>
-<script src="js/gibberish.min.js"></script>
-<script src="js/peg.min.js"></script>
+<script src="js/highlight.min.js"></script>
+<script src="js/hljs/javascript.min.js"></script>
+
 <script src="js/codemirror.min.js"></script>
+<script src="js/mode/pegjs.min.js"></script>
+
+<script src="js/peg.min.js"></script>
+<script src="js/gibberish.min.js"></script>
 <script src="js/iclc.js"></script>
 
 <style>
@@ -39,7 +45,7 @@ The PEG.js library has an online grammar editor at http://pegjs.org/online
 
 The simplest grammar is:
 
-```
+```js
 start = ""
 ```
 
@@ -51,7 +57,7 @@ Rules are specified as combinations (patterns) of other rules, and 'terminals', 
 
 Counting the number of words in a block of text:
 
-```
+```js
 // pattern: zero or more instances of a word followed by nonword characters
 // action: return the number of instances found
 wordcount = w:(word nonword)* { return w.length; }
@@ -130,19 +136,19 @@ Get name in lowercase							| ```name:[a-zA-Z]+ { return name.join("").toLowerCa
 
 Just grab everything at the end of the document. (Notice the use of the $ prefix: this ensures we get the raw text back, rather than a huge array.)
 
-```
+```js
 end "end" = $.* 
 ```
 
 A variable name whose first character must be a letter, but subsequent characters can have underscores & numbers. 
 
-```
+```js
 id "id" = $([a-zA-Z] [a-zA-Z0-9_])*
 ```
 
 Replacing newlines, quotes, and other magic characters to make sure you get a valid string back:
 
-```
+```js
 stringsafe "stringsafe"
  = text:string {
  	return text.replace(/\n/g, "\\n")
@@ -157,14 +163,14 @@ stringsafe "stringsafe"
 
 Grabbing the text inside a string
 
-```
+```js
 string "string"	
  = '"' text:$(!'"' .)* '"' { return text; }
 ```
 
 Many grammars use the _ underscore character to identify areas of whitespace, including spaces, tabs, newlines etc., as it draws more attention to the other, more significant parts of patterns. (except for languages in which white space is really significant...)
 
-```
+```js
 _ “optional whitespace” 
 = [ \t\r\n]*
 
@@ -174,7 +180,7 @@ __ “mandatory whitespace”
 
 An example that shows how to detect nested structures. In this case, it will match "[x]", "[x[y]]", "[[x]y[z]]" etc., returning the result as properly nested arrays. This technique will also work for more complex delimiters, such as "/*" and "*/". 
 
-```
+```js
 // everything is either a bracketed fragment, or not:
 Start        = Bracketed / NonBracketed
 
@@ -200,7 +206,7 @@ Close   = "]"
 
 It's really easy to make a grammar that can never terminate. Here's a failed attempt to match a string of one or more "a" characters:
 
-```
+```js
 // BAD!!!
 X = Y+
 Y = "a"*  
@@ -212,7 +218,7 @@ All you need to do is make sure than under any array-like operation (i.e. any us
 
 So the above grammar can be fixed simply by moving the zero-or-more up to the top:
 
-```
+```js
 X = Y*
 Y = "a"+ 
 ```
@@ -221,7 +227,7 @@ Y = "a"+
 
 There's another common way to make a grammar that can't terminate. A really common example of this is handling math expressions. To match statements like "1", "1+2", "1+2+3" etc, it might be tempting to write this:
 
-```
+```js
 // BAD!!!
 Expression = Addition / Value
 Addition = Expression "+" Expression
@@ -232,13 +238,13 @@ The problem is that the Addition rule's first item is Expression, whose first it
 
 An even simpler example:
 
-```
+```js
 StringOfAs = StringOfAs "a" / "a"
 ```
 
 If you get the "Left recursion detected" error, look through each of your rules for their first (left-most) items, and make sure they can't resolve back to themselves. The math grammar above can be fixed by removing this feedback loop by changing the first item in the Addition rule as follows:
 
-```
+```js
 Expression = Addition / Value
 Addition = Value ("+" Expression)*
 Value = [0-9]
@@ -270,7 +276,7 @@ Why Parsing Expression Grammar (PEG) rather than Context-Free Grammar (CFG)? Bec
 	</div>
 	<div class="row">
 		<div class="one-half column">
-			<div>Grammar:</div>
+			<h4>Grammar:</h4>
 			<textarea id="peged"> 
 seq
 = '[' hits:hit* ']' { return hits; }
@@ -312,14 +318,15 @@ rest
 			<div id="peg_msg"></div>
 		</div>
 		<div class="one-half column">
-			<div>Input:</div>
+			<h4>Input:</h4>
 			<textarea id="ed">[(x(x*-))x*x{o-}.-x]</textarea>
 			<div id="ed_msg"></div>
 			<hr/>
 			<button class="button-primary" id="ed_start">Start</button>
 			<button class="button-primary" id="ed_stop">Stop</button>
-			<div>Output:</div>
+			<h4>Output:</h4>
 			<div id="output"></div>
+			<hr/>
     	</div>
 	</div>
 </div>
