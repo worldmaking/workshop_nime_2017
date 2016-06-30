@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="css/codemirror.css">
 <link rel="stylesheet" href="css/github.min.css">
 
+<script src="js/jquery.min.js"></script>
+
 <script src="js/marked.js"></script>
 <script src="js/highlight.min.js"></script>
 <script src="js/hljs/javascript.min.js"></script>
@@ -18,6 +20,7 @@
 <script src="js/mode/pegjs.min.js"></script>
 
 <script src="js/peg.min.js"></script>
+<script src="js/pegjs.pegjs.js"></script>
 <script src="js/gibberish.min.js"></script>
 <script src="js/iclc.js"></script>
 
@@ -45,7 +48,7 @@ The PEG.js library has an online grammar editor at http://pegjs.org/online
 
 The simplest grammar is:
 
-```js
+```peg
 start = ""
 ```
 
@@ -57,7 +60,7 @@ Rules are specified as combinations (patterns) of other rules, and 'terminals', 
 
 Counting the number of words in a block of text:
 
-```js
+```peg
 // pattern: zero or more instances of a word followed by nonword characters
 // action: return the number of instances found
 wordcount = w:(word nonword)* { return w.length; }
@@ -136,19 +139,19 @@ Get name in lowercase							| ```name:[a-zA-Z]+ { return name.join("").toLowerCa
 
 Just grab everything at the end of the document. (Notice the use of the $ prefix: this ensures we get the raw text back, rather than a huge array.)
 
-```js
+```peg
 end "end" = $.* 
 ```
 
 A variable name whose first character must be a letter, but subsequent characters can have underscores & numbers. 
 
-```js
+```peg
 id "id" = $([a-zA-Z] [a-zA-Z0-9_])*
 ```
 
 Replacing newlines, quotes, and other magic characters to make sure you get a valid string back:
 
-```js
+```peg
 stringsafe "stringsafe"
  = text:string {
  	return text.replace(/\n/g, "\\n")
@@ -163,24 +166,24 @@ stringsafe "stringsafe"
 
 Grabbing the text inside a string
 
-```js
+```peg
 string "string"	
  = '"' text:$(!'"' .)* '"' { return text; }
 ```
 
 Many grammars use the _ underscore character to identify areas of whitespace, including spaces, tabs, newlines etc., as it draws more attention to the other, more significant parts of patterns. (except for languages in which white space is really significant...)
 
-```js
-_ “optional whitespace” 
+```peg
+_ "optional whitespace"
 = [ \t\r\n]*
 
-__ “mandatory whitespace” 
+__ "mandatory whitespace"
 = [ \t\r\n]+
 ```
 
 An example that shows how to detect nested structures. In this case, it will match "[x]", "[x[y]]", "[[x]y[z]]" etc., returning the result as properly nested arrays. This technique will also work for more complex delimiters, such as "/*" and "*/". 
 
-```js
+```peg
 // everything is either a bracketed fragment, or not:
 Start        = Bracketed / NonBracketed
 
@@ -206,7 +209,7 @@ Close   = "]"
 
 It's really easy to make a grammar that can never terminate. Here's a failed attempt to match a string of one or more "a" characters:
 
-```js
+```peg
 // BAD!!!
 X = Y+
 Y = "a"*  
@@ -218,7 +221,7 @@ All you need to do is make sure than under any array-like operation (i.e. any us
 
 So the above grammar can be fixed simply by moving the zero-or-more up to the top:
 
-```js
+```peg
 X = Y*
 Y = "a"+ 
 ```
@@ -227,7 +230,7 @@ Y = "a"+
 
 There's another common way to make a grammar that can't terminate. A really common example of this is handling math expressions. To match statements like "1", "1+2", "1+2+3" etc, it might be tempting to write this:
 
-```js
+```peg
 // BAD!!!
 Expression = Addition / Value
 Addition = Expression "+" Expression
@@ -238,13 +241,13 @@ The problem is that the Addition rule's first item is Expression, whose first it
 
 An even simpler example:
 
-```js
+```peg
 StringOfAs = StringOfAs "a" / "a"
 ```
 
 If you get the "Left recursion detected" error, look through each of your rules for their first (left-most) items, and make sure they can't resolve back to themselves. The math grammar above can be fixed by removing this feedback loop by changing the first item in the Addition rule as follows:
 
-```js
+```peg
 Expression = Addition / Value
 Addition = Value ("+" Expression)*
 Value = [0-9]

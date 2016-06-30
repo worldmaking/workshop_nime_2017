@@ -19,6 +19,8 @@ renderer.heading = function(text, level, raw) {
         + '</h' + level + '>\n';
 };
 
+
+
 marked.setOptions({
 	renderer: renderer,
 	gfm: true,
@@ -32,8 +34,69 @@ marked.setOptions({
 		I tried writing a mode definition for PEG.js, but gave up.
 		I'm tempted instead to write a peg.js parser for peg.js
 		And then defer to hljs to take care of the javascript portions.
+		
+		I now have a parser that can handle peg.js pretty well
+		
+		
+		
+    var s = "";
+    for (var i=0; i<a.length; i++) {
+    	var item = a[i];
+        if (typeof item == "string") {
+        	s += item;
+        } else {
+        	s += "<span class='hljs-" + item.type + "'>" + item.text + "</span>";
+        }
+    }
+		
 	*/
 	highlight: function (code, lang) {
+		if (lang == "peg") {
+			try {
+				var a = pegjs_pegjs.parse(code);
+				for (var i=0; i<a.length; i++) {
+					var v = a[i];
+					switch (v.type) {
+					case "js": {
+						a[i] = hljs.highlight("js", v.text).value;
+						break;
+					}
+					case "comment": {
+						a[i] = '<span class="hljs-comment">' + v.text + "</span>";
+						break;
+					}
+					case "argument": {
+						a[i] = v.text;
+						break;
+					}
+					case "ruledef": {
+						a[i] = '<span class="hljs-type">' + v.text + "</span>";
+						break;
+					}
+					case "rulename": {
+						a[i] = '<span class="hljs-variable">' + v.text + "</span>";
+						break;
+					}
+					case "string": {
+						a[i] = '<span class="hljs-string">' + v.text + "</span>";
+						break;
+					}
+					case "range":
+					case "operator": {
+						a[i] = '<span class="hljs-regexp">' + v.text + "</span>";
+						break;
+					}
+					default:
+						console.log(v.type);
+					}
+				}
+				return a.join("");
+			
+			} catch(e) {
+				console.log("ERROR", e.message);
+			}
+		}
+		// fallback:
 		return hljs.highlight(lang, code).value;
   	},
 });
