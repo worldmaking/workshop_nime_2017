@@ -1,0 +1,21 @@
+{
+  "name": "workshop_iclc_2016",
+  "version": "1.0.0",
+  "description": "A workshop on creating new live coding languages for ICLC 2016, co-presented by Charlie Roberts & Graham Wakefield.",
+  "scripts": {},
+  "keywords": [
+    "live-coding",
+    "parsing expression grammar",
+    "gibber",
+    "max/msp/jitter",
+    "live",
+    "coding"
+  ],
+  "author": "Graham Wakefield <grrrwaaa@gmail.com> (http://www.grahamwakefield.net/) & Charlie Roberts <charlie@charlie-roberts.com> (http://www.charlie-roberts.com/)",
+  "license": "MIT",
+  "devDependencies": {
+    "browserify": "^13.0.1",
+    "codemirror": "^5.16.0",
+    "pegjs": "^0.9.0"
+  }
+}
