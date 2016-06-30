@@ -2,19 +2,302 @@
 <html>
 <head>
 <meta charset="utf-8"/>
-<title>Marked in the browser</title>
+<title>ICLC 2016 Workshop: Design a Mini-Language</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="http://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="css/normalize.css">
+<link rel="stylesheet" href="css/skeleton.css">
 <script src="js/marked.js"></script>
+<script src="js/markdown-it.min.js"></script>
+<style>
+/* see http://getskeleton.com/ */
+html { font-size: 60%; } 
+table{ width:100%; }
+</style>
 </head>
 <body>
-<div style="display: none" id="sourcetext">
 
-# This is a demo
+<script type="bogus" id="sourcetext">
 
-This is a demo
+# Make a Mini Live Coding Language
 
-</div>
-<script>
-document.write(marked(document.getElementById('sourcetext').innerText));  
+A quick intro to the Parsing Expression Grammar formalism (and how to make it work for you!)
+
+<div id="toc"></div>
+
+## What can we do:
+
+- make patterns
+- manipulate patterns
+- modulate
+
+## Test your PEG online: 
+
+The PEG.js library has an online grammar editor at http://pegjs.org/online
+
+The simplest grammar is:
+
+```
+start = ""
+```
+
+This defines an initial rule called "start", which will match the input only if it is an empty string.
+
+Rules are specified as combinations (patterns) of other rules, and 'terminals', such as quoted strings. 
+
+## Simple examples
+
+Counting the number of words in a block of text:
+
+```
+// pattern: zero or more instances of a word followed by nonword characters
+// action: return the number of instances found
+wordcount = w:(word nonword)* { return w.length; }
+
+// one or more letters:
+word = [a-zA-Z]+
+
+// zero or more characters, like spaces, full-stops, etc.
+nonword = [^a-zA-Z]*
+```
+
+## Insights
+
+Though a grammar is defined top-down, it's usually easier to build & think about bottom up. 
+
+Sketching out a few examples of simple phrases or statements the grammar should understand (and what it should reject!) can help. 
+
+You can also think about it in a modular way: what types of things can be plugged into others. E.g., for the form "A + B" you might think of being able to plug numbers, words, and parentheses clauses in, e.g. "a + 1", "x + (y + z)", etc. The rules of the grammar identify things that can be plugged in, and what can be plugged into them.
+
+The core pattern concepts are "exactly this text", "a then b", "a or b", "optionally a", "zero or more a's", "one or more a's", "anything in the range of a to b", "anything except a", "anything that is also", etc. The most important 5 concepts, and how to write them, are:
+
+
+Concept											| Syntax 
+:--- 											| :---
+Exactly the text "abc"							| ```"abc"```
+A then B (sequence) 							| ```A B```
+A or B (ordered choice) 						| ```A / B```
+Optional A 										| ```A?```
+Zero or more A's (returns an array)				| ```A*```
+One or more A's (returns an array)				| ```A+```
+
+These can of course be combined:
+
+Concept											| Syntax 
+:--- 											| :---
+Match "ab", "aab", "aaab", etc.					| ```"a"+ "b"```
+A list of zero or more A's and B's 				| ```(A / B)*```
+
+There are also some special helpers that can make grammars a lot easier to write:
+
+Concept 										| Syntax 
+:--- 											| :---
+Any integer 									| ```[0-9]```
+Any lowercase letter 							| ```[a-z]```
+Any uppercase letter 							| ```[A-Z]```
+Any letter or number 							| ```[a-zA-Z0-9]```
+Any non-letter 									| ```[^a-zA-Z]```
+Any character at all (always matches)			| ```.```
+
+Advanced: There are also a couple of "predicate" concepts, which test one pattern first (but do not advance the input, nor use the result), and then test the next one and use it. 
+
+Concept 										| Syntax 
+:--- 											| :---
+A that also matches B (and-predicate) 			| ```&B A```
+A that also does not match B (not-predicate) 	| ```!B A```
+A (only when followed by B)			 			| ```A &(B)```
+A (unless followed by B)					 	| ```A !(B)```
+
+We make rules ("nonterminals") for several reasons:
+- the same sub-pattern can reappear in many different locations
+- to break up complex patterns into more digestible chunks, with helpful names
+- to identify points in the grammar at which structure can change
+
+*Choice is ordered*, which is important. If the first of a set of alternatives matches, the others will be ignored. It can be important therefore to list your alternatives with the most specific/complex first, the most general/simple last. As a simple example, ```"a" / "aa"``` will never select the second option, as the first one would have been valid. 
+
+*Actions*: In most languages, correct syntax doesn't guarantee correct semantics. And in fact, quite often a lot of the syntax is irrelevant -- "var x" is the same as "var       x" in JavaScript, for example -- so frequently our first stage in parsing is throwing away what we don't need and cleaning up what we have. We can do quite a lot of this work directly in the grammar by defining actions, which will be performed on the result of the match. Actions are just bodies of JavaScript. To refer to items in the pattern, we prefix them with a name, followed by a colon:
+
+Concept 										| Syntax 
+--- 											| ---
+Convert integer-string to number 				| ```n:[0-9] { return +n; }```
+Get name in lowercase							| ```name:[a-zA-Z]+ { return name.join("").toLowerCase(); }
+
+**Moreover, colourless green ideas sleep furiously.** We might be able to *validate* the semantics from within the parser, but sometimes we need a secondary (or more) passes over the result.
+
+## Some common patterns
+
+Just grab everything at the end of the document. (Notice the use of the $ prefix: this ensures we get the raw text back, rather than a huge array.)
+
+```
+end "end" = $.* 
+```
+
+A variable name whose first character must be a letter, but subsequent characters can have underscores & numbers. 
+
+```
+id "id" = $([a-zA-Z] [a-zA-Z0-9_])*
+```
+
+Replacing newlines, quotes, and other magic characters to make sure you get a valid string back:
+
+```
+stringsafe "stringsafe"
+ = text:string {
+ 	return text.replace(/\n/g, "\\n")
+ 			   .replace(/\r/g, "\\r")
+ 			   .replace(/\t/g, "\\t")
+ 			   .replace(/\f/g, "\\f")
+ 			   .replace(/\'/g, "\\'")
+ 			   .replace(/\"/g, '\\"')
+ 			   .replace(/\&/g, "\\&");
+ }
+```
+
+Grabbing the text inside a string
+
+```
+string "string"	
+ = '"' text:$(!'"' .)* '"' { return text; }
+```
+
+Many grammars use the _ underscore character to identify areas of whitespace, including spaces, tabs, newlines etc., as it draws more attention to the other, more significant parts of patterns. (except for languages in which white space is really significant...)
+
+```
+_ “optional whitespace” 
+= [ \t\r\n]*
+
+__ “mandatory whitespace” 
+= [ \t\r\n]+
+```
+
+An example that shows how to detect nested structures. In this case, it will match "[x]", "[x[y]]", "[[x]y[z]]" etc., returning the result as properly nested arrays. This technique will also work for more complex delimiters, such as "/*" and "*/". 
+
+```
+// everything is either a bracketed fragment, or not:
+Start        = Bracketed / NonBracketed
+
+// a bracketed fragment is wrapped in [ and ]:
+// we only need what is inside, and because of * it will be an array
+Bracketed    = Open s:Start* Close { return s; }
+
+// a non-bracketed fragment is any character that isn't [ or ]
+// we only need the character, which because of . will match anything
+// the !Open and !Close ensure that this character isn't [ or ]
+NonBracketed = (!Open !Close c:.) { return c; }
+
+// The opening & closing symbols of a bracket:
+Open    = "["
+Close   = "]"
+```
+
+## Error: "Infinite loop detected"
+
+It's really easy to make a grammar that can never terminate. Here's a failed attempt to match a string of one or more "a" characters:
+
+```
+// BAD!!!
+X = Y+
+Y = "a"*  
+```
+
+The problem here is that Y can match nothing (the empty string), since it can match zero or more of something, and X can match one or more of these Y's. That is, X can match one or more nothings. If you think about it, there are an infinite number of times you can match nothing. So X will keep on matching nothing until you run out of memory, and the parser will give up in a poof of ennui.
+
+All you need to do is make sure than under any array-like operation (i.e. any use of + or *), there is no expansion that can match an empty string (e.g. through the use of ? and *). 
+
+So the above grammar can be fixed simply by moving the zero-or-more up to the top:
+
+```
+X = Y*
+Y = "a"+ 
+```
+
+## Error: "Left recursion detected"
+
+There's another common way to make a grammar that can't terminate. A really common example of this is handling math expressions. To match statements like "1", "1+2", "1+2+3" etc, it might be tempting to write this:
+
+```
+// BAD!!!
+Expression = Addition / Value
+Addition = Expression "+" Expression
+Value = [0-9]
+```
+
+The problem is that the Addition rule's first item is Expression, whose first item is Addition, and so on forever -- the parser will keep following this trail of links until it runs out of memory, and never finish its job. 
+
+An even simpler example:
+
+```
+StringOfAs = StringOfAs "a" / "a"
+```
+
+If you get the "Left recursion detected" error, look through each of your rules for their first (left-most) items, and make sure they can't resolve back to themselves. The math grammar above can be fixed by removing this feedback loop by changing the first item in the Addition rule as follows:
+
+```
+Expression = Addition / Value
+Addition = Value ("+" Expression)*
+Value = [0-9]
+```
+
+However note that the structure it returns will look different. We can use actions to reshuffle the parse tree into the format that we actually want.
+
+
+
+## Nerdy bits
+
+Why Parsing Expression Grammar (PEG) rather than Context-Free Grammar (CFG)? Because the choice operator always selects the first match (in CFG this is ambiguous) -- with PEGs there is only one valid parse tree. Compared to Regular Expressions, PEGs have the ability to define recursive structures (and they're also a bit easier to read!)
+
 </script>
+
+
+<div class="container">
+    <div class="row">
+      
+      <div class="full column" style="margin-top: 25%" id="main_body">
+      	<script>
+
+var renderer = new marked.Renderer();
+// insert a bit of extra logic to the renderer to pull out heading links:
+var toc = ["- Contents"];
+renderer.heading = function(text, level, raw) {
+    var anchor = this.options.headerPrefix + raw.toLowerCase().replace(/[^\w]+/g, '-');
+    if (level > 1) {
+		toc.push(
+			"\t".repeat(level-1) 
+			+ "- [" + text + "](" + anchor + ")"
+		);
+	}
+    return '<h' + level + ' id="' + anchor + '">'
+        + text
+        + '</h' + level + '>\n';
+};
+    
+
+marked.setOptions({
+	renderer: renderer,
+	gfm: true,
+	tables: true,
+	sanitize: false,
+	smartLists: true,
+	smartypants: false,
+});
+
+var body = document.getElementById('sourcetext').innerText;
+
+document.getElementById('main_body').innerHTML = marked(body);
+document.getElementById('toc').innerHTML = marked(toc.join("\n"));
+
+//var md = window.markdownit();
+//md.set({ html: true, breaks: true });
+//document.getElementById('main_body').innerHTML = md.render(body, { html: true });
+
+
+		</script>
+      </div>
+    </div>
+  </div>
+
+
+
+
 </body>
 </html>
