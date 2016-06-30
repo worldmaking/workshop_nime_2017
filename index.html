@@ -7,12 +7,18 @@
 <link href="http://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
 <link rel="stylesheet" href="css/normalize.css">
 <link rel="stylesheet" href="css/skeleton.css">
+<link rel="stylesheet" href="css/codemirror.css">
+
 <script src="js/marked.js"></script>
-<script src="js/markdown-it.min.js"></script>
+<script src="js/gibberish.min.js"></script>
+<script src="js/peg.min.js"></script>
+<script src="js/codemirror.min.js"></script>
+<script src="js/iclc.js"></script>
+
 <style>
 /* see http://getskeleton.com/ */
-html { font-size: 60%; } 
-table{ width:100%; }
+html { font-size: 50%; } 
+table { width:100%; }
 </style>
 </head>
 <body>
@@ -21,17 +27,13 @@ table{ width:100%; }
 
 # Make a Mini Live Coding Language
 
-A quick intro to the Parsing Expression Grammar formalism (and how to make it work for you!)
-
 <div id="toc"></div>
 
-## What can we do:
+## Intro
 
-- make patterns
-- manipulate patterns
-- modulate
 
-## Test your PEG online: 
+
+## Designing a language's grammar
 
 The PEG.js library has an online grammar editor at http://pegjs.org/online
 
@@ -41,11 +43,11 @@ The simplest grammar is:
 start = ""
 ```
 
-This defines an initial rule called "start", which will match the input only if it is an empty string.
+This defines an initial rule called "start", which will match the input only if it is an empty string. 
 
 Rules are specified as combinations (patterns) of other rules, and 'terminals', such as quoted strings. 
 
-## Simple examples
+### Simple examples
 
 Counting the number of words in a block of text:
 
@@ -61,7 +63,7 @@ word = [a-zA-Z]+
 nonword = [^a-zA-Z]*
 ```
 
-## Insights
+### Insights
 
 Though a grammar is defined top-down, it's usually easier to build & think about bottom up. 
 
@@ -124,7 +126,7 @@ Get name in lowercase							| ```name:[a-zA-Z]+ { return name.join("").toLowerCa
 
 **Moreover, colourless green ideas sleep furiously.** We might be able to *validate* the semantics from within the parser, but sometimes we need a secondary (or more) passes over the result.
 
-## Some common patterns
+### Common patterns
 
 Just grab everything at the end of the document. (Notice the use of the $ prefix: this ensures we get the raw text back, rather than a huge array.)
 
@@ -190,7 +192,11 @@ Open    = "["
 Close   = "]"
 ```
 
-## Error: "Infinite loop detected"
+---
+
+### Common errors
+
+#### "Infinite loop detected"
 
 It's really easy to make a grammar that can never terminate. Here's a failed attempt to match a string of one or more "a" characters:
 
@@ -211,7 +217,7 @@ X = Y*
 Y = "a"+ 
 ```
 
-## Error: "Left recursion detected"
+#### "Left recursion detected"
 
 There's another common way to make a grammar that can't terminate. A really common example of this is handling math expressions. To match statements like "1", "1+2", "1+2+3" etc, it might be tempting to write this:
 
@@ -240,64 +246,158 @@ Value = [0-9]
 
 However note that the structure it returns will look different. We can use actions to reshuffle the parse tree into the format that we actually want.
 
+---
 
-
-## Nerdy bits
+### Nerdy FAQs
 
 Why Parsing Expression Grammar (PEG) rather than Context-Free Grammar (CFG)? Because the choice operator always selects the first match (in CFG this is ambiguous) -- with PEGs there is only one valid parse tree. Compared to Regular Expressions, PEGs have the ability to define recursive structures (and they're also a bit easier to read!)
 
+---
+
+## What can we do:
+
+- make patterns
+- manipulate patterns
+- modulate
+
 </script>
 
-
 <div class="container">
-    <div class="row">
-      
-      <div class="full column" style="margin-top: 25%" id="main_body">
-      	<script>
+	<div class="row" style="margin-top: 25%">
+		<div class="full column" id="main_body">
+		
+		</div>
+	</div>
+	<div class="row">
+		<div class="one-half column">
+			<div>Grammar:</div>
+			<textarea id="peged"> 
+seq
+= '[' hits:hit* ']' { return hits; }
+  
+hit
+= any / all / kick / snare / hatc / hato / rest
+  
+any
+= '(' hits:hit+ ')' {
+  return function() {
+    hits[random(hits.length)]();
+  }
+}
+  
+all
+= '{' hits:hit+ '}' {
+  return function() {
+    for (var i=0; i<hits.length; i++) {
+      hits[i]();                  
+    }
+  }
+}
+  
+kick
+= 'x' { return function() { kick.note(); }; }
+  
+snare
+= 'o' { return function() { snare.note(); }; }
+  
+hatc
+= '*' { return function() { hat.note(1500); }; }
+  
+hato
+= '-' { return function() { hat.note(15000); }; }
+  
+rest
+= ('.' / ' ') { return function() {} }
+			</textarea>
+			<div id="peg_msg"></div>
+		</div>
+		<div class="one-half column">
+			<div>Input:</div>
+			<textarea id="ed">[(x(x*-))x*x{o-}.-x]</textarea>
+			<div id="ed_msg"></div>
+			<hr/>
+			<button class="button-primary" id="ed_start">Start</button>
+			<button class="button-primary" id="ed_stop">Stop</button>
+			<div>Output:</div>
+			<div id="output"></div>
+    	</div>
+	</div>
+</div>
 
-var renderer = new marked.Renderer();
-// insert a bit of extra logic to the renderer to pull out heading links:
-var toc = ["- Contents"];
-renderer.heading = function(text, level, raw) {
-    var anchor = this.options.headerPrefix + raw.toLowerCase().replace(/[^\w]+/g, '-');
-    if (level > 1) {
-		toc.push(
-			"\t".repeat(level-1) 
-			+ "- [" + text + "](" + anchor + ")"
-		);
-	}
-    return '<h' + level + ' id="' + anchor + '">'
-        + text
-        + '</h' + level + '>\n';
-};
-    
 
-marked.setOptions({
-	renderer: renderer,
-	gfm: true,
-	tables: true,
-	sanitize: false,
-	smartLists: true,
-	smartypants: false,
-});
+
+<script>
 
 var body = document.getElementById('sourcetext').innerText;
-
 document.getElementById('main_body').innerHTML = marked(body);
 document.getElementById('toc').innerHTML = marked(toc.join("\n"));
 
-//var md = window.markdownit();
-//md.set({ html: true, breaks: true });
-//document.getElementById('main_body').innerHTML = md.render(body, { html: true });
+////////////////////////////////////////////////////////////////////////////////
 
+var peged = CodeMirror.fromTextArea(document.getElementById("peged"), {mode: "pegjs"});
+var peg_msg_div = document.getElementById("peg_msg");
+var ed = CodeMirror.fromTextArea(document.getElementById("ed"));
+var ed_msg_div = document.getElementById("ed_msg");
+var out_div = document.getElementById("output");
 
-		</script>
-      </div>
-    </div>
-  </div>
+var start_button = document.getElementById("ed_start");
+var stop_button = document.getElementById("ed_stop");
 
+start_button.onclick = function() { parse(); seq.start(); }
+stop_button.onclick = function() { seq.stop(); }
 
+// events: http://codemirror.net/3/doc/manual.html#events
+// e.g. use the "change" event to respond to code without needing to trigger it. e.g. in-place formatting changes, but maybe also super-live-immediate mode! Other cursor/selection/gutter events. 
+// "renderLine" event to style-by-parser?
+peged.on("change", function(ed, change) {
+  parser = undefined;
+  parse();
+});
 
+ed.on("change", function(ed, change) {
+  parse();
+});
+
+// PEG:
+// http://pegjs.org/documentation
+
+var parser;
+
+function make_parser() {
+  peg_msg_div.innerText = "";
+  try {
+    // update our parser:
+    parser = PEG.buildParser(peged.getValue());
+  } catch(ex) {
+    //console.log(ex.message);
+    peg_msg_div.innerText = ex.message;
+  }
+}
+
+var tracer = {
+  trace: function(o) {
+    console.log("trace", o);
+  }
+};
+
+function parse() {
+  ed_msg_div.innerText = "";
+  out_div.innerText = "";
+  try {
+    if (parser === undefined) make_parser();
+    
+    // TODO: insert a tracer
+    var res = parser.parse(ed.getValue(), { trace: tracer });
+    console.log(res);
+    score = res;
+    out_div.innerText = JSON.stringify(res);
+  } catch(ex) {
+    //console.log(ex.message);
+    ed_msg_div.innerText = ex.message;
+  }
+}
+
+</script>
 
 </body>
 </html>
