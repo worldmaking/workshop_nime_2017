@@ -131,7 +131,7 @@ We make rules ("nonterminals") for several reasons:
 Concept 										| Syntax 
 --- 											| ---
 Convert integer-string to number 				| ```n:[0-9] { return +n; }```
-Get name in lowercase							| ```name:[a-zA-Z]+ { return name.join("").toLowerCase(); }
+Get name in lowercase							| ```name:[a-zA-Z]+ { return name.join("").toLowerCase(); }```
 
 **Moreover, colourless green ideas sleep furiously.** We might be able to *validate* the semantics from within the parser, but sometimes we need a secondary (or more) passes over the result.
 

@@ -87,7 +87,7 @@ marked.setOptions({
 						break;
 					}
 					default:
-						console.log(v.type);
+						//console.log(v.type);
 					}
 				}
 				return a.join("");
