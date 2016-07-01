@@ -36,6 +36,26 @@ table { width:100%; }
 
 # Make a Mini Live Coding Language
 
+*International Live Coding Conference 2016, Hamilton, Canada*
+
+> In this workshop participants will design and develop a idiosyncratic (perhaps even esoteric) language for live coding. Participants will use an open-source, browser-based code editor capable of communicating with a variety of audio platforms (such as the native browser audio API, Ableton Live, and Max/MSP). The workshop will give a gentle introduction to the construction of grammars for parsing, using friendly browser-based libraries, with which participants will design their own mini-languages for defining musical patterns. Participants will take turns experimenting with the other languages created in the workshop, obtaining feedback and inspiration from each other, and will leave with the knowledge required to continue development of their language on their own.
+
+---
+
+**Invent your own language!**
+
+In this workshop participants will create their own, idiosyncratic (perhaps even esoteric) mini-languages for live coding. These languages will be designed and run in a readily-accessible browser-based code editor. The workshop will give a gentle introduction to the construction of languages via parsing expression grammars. No experience in any of these specific technologies is necessary. However, some programming experience will be helpful. An open-source browser-based editing environment and support library will be provided to participants. This environment leverages the codemirror and peg.js projects, and can dynamically evaluate code to communicate via websockets or OSC with a variety of platforms for generating audiovisual content. The workshop concentrates upon the editing, parsing, scheduling and annotation of live code within this environment, but examples will be worked through driving standalone engines including Max/MSP and Ableton Live (we will provide a standalone app for participants who do not have Live and Max), as well as addressing the Web Audio API (available in most modern browsers). Although participants will develop for the target of their choice many language features will be agnostic to the intended target platform. 
+
+Time-permitting, language features explored in the workshop will include:
+- Basic concepts of grammars: rules, literals, sequences, alternatives, actions, etc.
+- Triggering code fragments
+- Sequencing and the creation of patterns
+- Pattern manipulation and transformation
+- Modulation of properties using nested expressions
+- Perhaps even self-modifying code
+
+By the end of the workshop users will have created a small idiosyncratic (and perhaps esoteric) live-coding language capable of targeting a variety of platforms. We will reserve time for participants to experiment with other languages created in the workshop, so that they can obtain feedback and inspiration from each other. Participants will leave with the knowledge required to continue development of their language on their own.
+
 <div id="toc"></div>
 
 ## Intro
@@ -43,6 +63,8 @@ table { width:100%; }
 
 
 ## Designing a language's grammar
+
+Parsing is the general problem of turning raw text into structured data. 
 
 The PEG.js library has an online grammar editor at http://pegjs.org/online
 
@@ -135,12 +157,27 @@ Get name in lowercase							| ```name:[a-zA-Z]+ { return name.join("").toLowerCa
 
 **Moreover, colourless green ideas sleep furiously.** We might be able to *validate* the semantics from within the parser, but sometimes we need a secondary (or more) passes over the result.
 
+#### Except, unless
+
+For example, we want to match a variable name, except if it a reserved keyword. For example, 
+
+```peg
+varname "variable name" = !keyword word
+```
+
+
 ### Common patterns
 
 Just grab everything at the end of the document. (Notice the use of the $ prefix: this ensures we get the raw text back, rather than a huge array.)
 
 ```peg
 end "end" = $.* 
+```
+
+To actually detect the end of the entire input string, we can assert that there is nothing after it:
+
+```peg
+end_of_input = !.
 ```
 
 A variable name whose first character must be a letter, but subsequent characters can have underscores & numbers. 
@@ -199,6 +236,139 @@ NonBracketed = (!Open !Close c:.) { return c; }
 // The opening & closing symbols of a bracket:
 Open    = "["
 Close   = "]"
+```
+
+```peg
+// here's a simplified version, which grabs the text written inside /* long comments */
+MultiLineComment = "/*" s:(!"*/" .)* "*/" { return s.join(""); }
+```
+
+#### Numbers
+
+Here are a few patterns for whole numbers:
+
+```peg
+single_digit = [0-9]
+nonzero_digit = [1-9]
+
+nonzero_integer = nonzero_digit single_digit*
+positive_integer = single_digit+
+integer = "-"? positive_integer
+```
+
+Note that `positive_integer` above will match "0" but also "000"; if you don't want that, here's a refined version:
+
+```peg
+// won't match 000
+positive_integer = "0" / (nonzero_digit single_digit*)
+```
+
+Introducing decimal points gets trickier, depending on how flexible you want to be. "1.2", "34.56", ".00001", "1234.", and negative versions of these? Scientific notation such as "1e10", "0.4e-12"? 
+
+```peg
+positive_decimal = ("." single_digit+)
+	/ (single_digit+ "." single_digit*)	
+	
+decimal = "-"? positive_decimal
+
+scientific = (decimal / integer) ("e" integer)?
+```
+
+If you want to turn these into actual numbers, rather than strings containing numbers:
+
+```peg
+number = scientific { return +text(); }
+```
+
+A compressed version of all this:
+
+```peg
+number = scientific { return +text(); }
+scientific = "-"? (decimal / integer) ("e" "-"? integer)?
+decimal = ("." integer) / (integer "." [0-9]*)
+integer = [0-9]+
+```
+
+
+
+#### Notes and chords
+
+How about turning typical note names and chords, such as "c4", "Fb5", "C#dim7" etc., into MIDI equivalents?
+
+```peg
+theory_note = c:chroma a:accidental? o:octave? {
+	return c + (a || 0) + (o || 24);
+}
+
+chroma = c:[a-gA-G] { 
+	// return MIDI note offset from C:
+	switch(c.toUpperCase()) {
+	case "C": return 0; break;
+	case "D": return 2; break;
+	case "E": return 4; break;
+	case "F": return 5; break;
+	case "G": return 7; break;
+	case "A": return 9; break;
+	case "B": return 11; break;
+	}
+}
+
+// sharps and flats
+accidental = a:[#b] {
+	// return MIDI note offset:
+	switch(a) {
+    case "#": return +1;
+    case "b": return -1;
+    }
+}
+
+octave = "-"? [0-9] { 
+	// MIDI note value of C in this octave:
+	return 24 + (+text()) * 12; 
+}
+
+freq_note = n:number ("hz" / "Hz") {
+	// the formula to turn Hz into MIDI note value:
+    return 69 + 17.31234050465299 * Math.log(n / 440);
+}
+
+note = freq_note / theory_note
+```
+
+Now chords...
+
+```peg
+
+absolute_chord = base:note chord:chord_extended {
+	var result = [];
+    for (var e of chord) {
+    	result.push(base + e);
+    }
+    return result;
+}
+
+chord_extended
+= chord:chord ext:extensions* {
+	var last = chord[2];
+    for (var e of ext) {
+    	chord.push(last + e);
+    }
+    return chord;
+}
+
+extensions 
+= "7" { return 3; }
+/ "#7" { return 4; }
+/ "b9" { return 6; }
+/ "9" { return 7; }
+
+chord 
+= "min" { return [0, 3, 7]; }
+/ "maj" { return [0, 4, 7]; }
+/ "dim" { return [0, 3, 6]; }
+/ "sus" { return [0, 5, 7]; } 
+/ "aug" { return [0, 4, 8]; }
+
 ```
 
 ---
