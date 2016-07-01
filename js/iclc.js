@@ -94,6 +94,7 @@ marked.setOptions({
 			
 			} catch(e) {
 				console.log("ERROR", e.message);
+				console.log(code);
 			}
 		}
 		// fallback:

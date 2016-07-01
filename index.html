@@ -356,18 +356,16 @@ chord_extended
     return chord;
 }
 
-extensions 
-= "7" { return 3; }
-/ "#7" { return 4; }
-/ "b9" { return 6; }
-/ "9" { return 7; }
+extensions = "7" { return 3; }
+	/ "#7" { return 4; }
+	/ "b9" { return 6; }
+	/ "9" { return 7; }
 
-chord 
-= "min" { return [0, 3, 7]; }
-/ "maj" { return [0, 4, 7]; }
-/ "dim" { return [0, 3, 6]; }
-/ "sus" { return [0, 5, 7]; } 
-/ "aug" { return [0, 4, 8]; }
+chord = "min" { return [0, 3, 7]; }
+	/ "maj" { return [0, 4, 7]; }
+	/ "dim" { return [0, 3, 6]; }
+	/ "sus" { return [0, 5, 7]; } 
+	/ "aug" { return [0, 4, 8]; }
 
 ```
 
