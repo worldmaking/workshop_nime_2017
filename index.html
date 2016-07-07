@@ -34,11 +34,13 @@ table { width:100%; }
 
 <script type="bogus" id="sourcetext">
 
-# Make a Mini Live Coding Language
+# Design a Mini Live Coding Language
 
 *International Live Coding Conference 2016, Hamilton, Canada*
 
 > In this workshop participants will design and develop a idiosyncratic (perhaps even esoteric) language for live coding. Participants will use an open-source, browser-based code editor capable of communicating with a variety of audio platforms (such as the native browser audio API, Ableton Live, and Max/MSP). The workshop will give a gentle introduction to the construction of grammars for parsing, using friendly browser-based libraries, with which participants will design their own mini-languages for defining musical patterns. Participants will take turns experimenting with the other languages created in the workshop, obtaining feedback and inspiration from each other, and will leave with the knowledge required to continue development of their language on their own.
+
+Instructors: [Graham Wakefield](http://www.grahamwakefield.net) & [Charlie Roberts](http://www.charlie-roberts.com)
 
 ---
 
@@ -60,23 +62,43 @@ By the end of the workshop users will have created a small idiosyncratic (and pe
 
 ## Intro
 
+We're going to design languages for live coding. We don't have much time, so they're going to have to be simple, but that doesn't mean they can't be unusual (for inspiration, look at this list of esoteric languages here: https://esolangs.org/wiki/Language_list). Our languages are going to be input as raw text, and our job is to build the parser that can understand this text. Parsing is the general problem of turning raw text into meaningfully-structured data and/or actions, such as sonic events. As language creators, we need to decide what kinds of text fragments will turn into what kinds of actions. We need to know:
 
+1. what kinds of actions can we make?
+	- For this workshop, the kinds of actions we can make are instrument note triggers, instrument parameter changes, and ??
+2. what kinds of text fragments can we recognize?
+	- We'll look at a variety of examples
+3. how to specify the mapping between text and action
+	- To do this, we're going to learn how to use **[parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar)**
+
+We're going to do most of this using web-based technologies, supported by JavaScript. For example, grammars will be implemented using the [PEG.js](http://pegjs.org) library, the text editor uses the [CodeMirror](http://codemirror.net/) library, our example sounds are generated from the [Gibberish](http://www.charlie-roberts.com/gibberish/) library, etc. -- but you don't really need to know all of this, as they're already built-in to our workshop pages.
 
 ## Designing a language's grammar
 
-Parsing is the general problem of turning raw text into structured data. 
+We write grammars as a set of pattern-based rules. A rule has: 
 
-The PEG.js library has an online grammar editor at http://pegjs.org/online
+- a **name**, so that you can refer to it elsewhere, 
+- a **pattern**, which defines what kinds of text it can recognize
 
-The simplest grammar is:
+The simplest grammar has only one rule, and the simplest kind of rule looks like this:
 
 ```peg
-start = ""
+start = "hello"
 ```
 
-This defines an initial rule called "start", which will match the input only if it is an empty string. 
+Here `start` is the rule's name, and `"hello"` is the pattern it recognizes. In this case it will match the input only if the input has exactly the word ```hello``` (and nothing else).
+
+A pattern may also have **actions**, which modify or define what the rule returns when it matches input. (Otherwise, patterns generally just return the text they contain.) 
+
+One way of thinking about how to design a language is to start from the result, and work back. The results are the kinds of things our engine can actually produce (or more accurately, the subset of these things that we are likely to want to produce). This way of thinking effectively means designing a collection of short-cuts, short-hands, macros, simple fragments that can expand into fully-specified events. 
+
 
 Rules are specified as combinations (patterns) of other rules, and 'terminals', such as quoted strings. 
+
+
+### Our editor
+
+On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the currently selected text.
 
 ### Simple examples
 
@@ -293,11 +315,14 @@ integer = [0-9]+
 
 #### Notes and chords
 
-How about turning typical note names and chords, such as "c4", "Fb5", "C#dim7" etc., into MIDI equivalents?
+How about turning typical note names and chords, such as "c4", "Fbb5", etc. into MIDI equivalents?
 
 ```peg
-theory_note = c:chroma a:accidental? o:octave? {
-	return c + (a || 0) + (o || 24);
+theory_note = c:chroma a1:accidental? a2:accidental? o:octave? {
+	if (a1 != undefined) c = c + a1;
+	if (a2 != undefined) c = c + a2;
+	if (o  != undefined) c = c + o;
+	return c;
 }
 
 chroma = c:[a-gA-G] { 
@@ -335,11 +360,11 @@ freq_note = n:number ("hz" / "Hz") {
 note = freq_note / theory_note
 ```
 
-Now chords...
+And now for chords:
 
 ```peg
-
-absolute_chord = base:note chord:chord_extended {
+absolute_chord "absolute chord" 
+= base:note chord:chord_extended {
 	var result = [];
     for (var e of chord) {
     	result.push(base + e);
@@ -347,26 +372,92 @@ absolute_chord = base:note chord:chord_extended {
     return result;
 }
 
-chord_extended
-= chord:chord ext:extensions* {
+chord_extended "extended chord" 
+= chord:chord variants:chord_variant* {
 	var last = chord[2];
-    for (var e of ext) {
-    	chord.push(last + e);
+    for (var v of variants) {
+    	chord.push(last + v);
     }
     return chord;
 }
 
-extensions = "7" { return 3; }
+chord_variant "chord variant" 
+    = "7" { return 3; }
 	/ "#7" { return 4; }
 	/ "b9" { return 6; }
 	/ "9" { return 7; }
 
-chord = "min" { return [0, 3, 7]; }
+chord "chord" 
+	= "min" { return [0, 3, 7]; }
 	/ "maj" { return [0, 4, 7]; }
 	/ "dim" { return [0, 3, 6]; }
 	/ "sus" { return [0, 5, 7]; } 
 	/ "aug" { return [0, 4, 8]; }
+```
 
+#### Time in space
+
+Some live coding languages make an effort to use textual space in a temporally-meaningful way. In ixilang patterns, textual space maps directly onto sound. This works well because sound events are always a single character. To create a rest, insert a space character. The number of characters in a pattern is also the temporal length of the pattern. In Tidal, patterns have a loop length determined by context, which could be for example a couple of beats. By default, events within the pattern are distributed evenly in time, making it easy to create different subdivisions of a meter. Events are delimited by spaces (making them like words). In Gibber, a pattern includes two separate lists, one for the event data, the other for the timing of that data. However in some cases events can be single-characters, granting a mapping of space to time as with ixilang. 
+
+How will you determine the timing of events in a pattern, and will it use character- and/or word-based spacing?
+
+#### LISP
+
+The Lisp programming language has one of the simplest grammars. Everything is a term, which could be a single word be a list of terms; lists are bounded by parentheses and their terms are separated by space characters, or can be empty. Four rules are enough to recognize this language and return its structure in nested arrays:
+
+```peg
+// an item can be followed by whitespace
+// which we ignore by using the action
+// the item itself could be a list or a word
+term "term" = body:(list / word) _ { return body; } 
+
+// a pattern is enclosed within parentheses
+// it could also be empty
+list "list" = "(" _ body:term* ")" { return body; }
+
+// a symbol must not contain parentheses nor whitespace
+// use the "$" to get the raw text
+word "word" = $[^() \t\n\r]+
+
+// white space is zero or more spaces or tabs (or newlines)
+_ "whitespace" = [ \t\n\r]*
+```
+
+This could also form the basis of a language for structured patterns. For example, the terms within a list could be annotated with timing:
+
+```peg
+term "term" = body:(pattern / event) _ { return body; } 
+
+pattern "pattern" = "(" _ body:term* ")" { 
+	var len = body.length;
+    var result = [];
+    for (var i in body) {
+    	result.push({
+        	dur: 1/len,
+            start: i/len,
+            data: body[i]
+        });
+    }
+    return result; 
+}
+
+event "event" = $[^() \t\n\r]+
+
+_ "whitespace" = [ \t\n\r]*
+```
+
+Given the input string ```((bd hc) sn)```, this returns a Tidal-like interpretation:
+
+```js
+[
+   {
+      "dur": 0.5, "start": 0, "data": [
+         { "dur": 0.5, "start": 0, "data": "bd" },
+         { "dur": 0.5, "start": 0.5, "data": "hc" }
+      ]
+   },
+   { "dur": 0.5, "start": 0.5, "data": "sn" }
+]
 ```
 
 ---
@@ -423,11 +514,23 @@ Value = [0-9]
 
 However note that the structure it returns will look different. We can use actions to reshuffle the parse tree into the format that we actually want.
 
+#### Getting better errors
+
+If you annotate a rule by putting a string after the rule name, then this string will be used in error reporting. 
+
+```peg
+myrule "myrule" = A B
+```
+
+This also lets the PEG.js parser know this is a likely location for errors (and it will suppress errors from any nested rules). Usually it's best to put these annotations on the lowest-level rules, so that errors become more localized. Definitely don't put them on your highest-level rules!
+
 ---
 
-### Nerdy FAQs
+### Nerdy corner
 
 Why Parsing Expression Grammar (PEG) rather than Context-Free Grammar (CFG)? Because the choice operator always selects the first match (in CFG this is ambiguous) -- with PEGs there is only one valid parse tree. Compared to Regular Expressions, PEGs have the ability to define recursive structures (and they're also a bit easier to read!)
+
+This workshop is an example of [Language-oriented programming](https://en.wikipedia.org/wiki/Language-oriented_programming) (LOP); a style of computer programming in which, rather than solving problems in general-purpose programming languages, the programmer creates one or more domain-specific languages for the problem first, and solves the problem in those languages. 
 
 ---
 
@@ -514,7 +617,23 @@ document.getElementById('toc').innerHTML = marked(toc.join("\n"));
 
 var peged = CodeMirror.fromTextArea(document.getElementById("peged"), {mode: "pegjs"});
 var peg_msg_div = document.getElementById("peg_msg");
-var ed = CodeMirror.fromTextArea(document.getElementById("ed"));
+
+var ed;
+
+var ed_trigger = function(cm) {
+	// if selection is empty, select entire line or containing block?
+	console.log("exec!");
+}
+
+// see http://codemirror.net/3/doc/manual.html#keymaps
+var ed_options = {
+  extraKeys: {
+    "Ctrl-Enter": ed_trigger,
+    "Cmd-Enter": ed_trigger,
+  }
+};
+
+ed = CodeMirror.fromTextArea(document.getElementById("ed"), ed_options);
 var ed_msg_div = document.getElementById("ed_msg");
 var out_div = document.getElementById("output");
 

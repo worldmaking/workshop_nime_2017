@@ -114,14 +114,6 @@ CodeMirror.defaults.lineNumbers = true;
 //CodeMirror.defaults.autofocus = true;
 CodeMirror.defaults.undoDepth = 100;
 
-// see http://codemirror.net/3/doc/manual.html#keymaps
-CodeMirror.defaults.extraKeys = {
-  "Ctrl-Enter": function(cm) {
-    // if selection is empty, select entire line or containing block?
-    console.log("exec!");
-  }
-};
-
 // content manipulation: http://codemirror.net/3/doc/manual.html#api_content
 
 /*

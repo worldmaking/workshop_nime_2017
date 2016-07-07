@@ -17,7 +17,7 @@ Start = a:_ b:Action? c:_ d:(Rule _)* {
 	return flatten([a,b,c,d], []);
 }
 
-Rule = RuleDef _ StringAnnotation? _ "=" _ RuleBody _ Action?
+Rule = RuleDef _ StringAnnotation? _ "=" _ RuleBody
 
 Argument = a:$([a-zA-Z] [a-zA-Z0-9_]* ":") b:Term {
 	return [{ 
@@ -36,6 +36,7 @@ Term = Rule
  / Operator
  / Range
  / Paren
+ / Action
  / __
 
 PredicateOperator = [!&] {
@@ -202,6 +203,7 @@ UnicodeEscapeSequence
       return String.fromCharCode(parseInt(digits, 16));
     }
     
+
 
 
 
