@@ -11,7 +11,7 @@ renderer.heading = function(text, level, raw) {
     if (level > 1) {
 		toc.push(
 			"\t".repeat(level-2) 
-			+ "- [" + text + "](" + anchor + ")"
+			+ "- [" + text + "](#" + anchor + ")"
 		);
 	}
     return '<h' + level + ' id="' + anchor + '">'
