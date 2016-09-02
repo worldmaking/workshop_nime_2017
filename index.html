@@ -460,6 +460,30 @@ Given the input string ```((bd hc) sn)```, this returns a Tidal-like interpretat
 ]
 ```
 
+#### XMLish
+
+```js
+tag = _ "<" name:tagname _ attrs:tagattr* _ ">" _ body:tagbody _ "</" tagname ">" _ { 
+	return { 
+		name:  name, 
+		attrs: attrs, 
+		body:  body 
+	}; 
+}
+
+tagname = $(![>/ \t\n\r] .)+
+
+tagattr = _ key:attrname _ "=" _ '"' _ value:attrname _ '"' _ {
+	return { key: key, value: value };
+}
+attrname = $(![>=" \t\n\r] .)+
+
+tagbody = (tag / tagtext)*
+tagtext = $(![<] .)+
+
+_ "whitespace" = [ \t\n\r]*
+```
+
 ---
 
 ### Common errors
