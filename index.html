@@ -75,10 +75,13 @@ We're going to do most of this using web-based technologies, supported by JavaSc
 
 ## Designing a language's grammar
 
+### Rules
+
 We write grammars as a set of pattern-based rules. A rule has: 
 
 - a **name**, so that you can refer to it elsewhere, 
-- a **pattern**, which defines what kinds of text it can recognize
+- a **pattern**, which defines what kinds of text it can recognize,
+- an optional **action**, which defines what is returned when a rule applies.
 
 The simplest grammar has only one rule, and the simplest kind of rule looks like this:
 
@@ -86,14 +89,246 @@ The simplest grammar has only one rule, and the simplest kind of rule looks like
 start = "hello"
 ```
 
-Here `start` is the rule's name, and `"hello"` is the pattern it recognizes. In this case it will match the input only if the input has exactly the word ```hello``` (and nothing else).
+Here `start` is the rule's name, and `"hello"` is the pattern it recognizes. In this case it will match the input only if the input has exactly the word ```hello``` (and nothing else). 
 
-A pattern may also have **actions**, which modify or define what the rule returns when it matches input. (Otherwise, patterns generally just return the text they contain.) 
+That is, if you give it the input string ```hello``` it will output ```"hello"```. But if you give it any other input string, like ```bye```, it will result in an error like ```Expected "hello" but "b" found.```.
+
+Parsing grammars are often used to more than just *match* an input; they become really powerful when they do some kind of *translation* of the input. This generally means *modifying what a rule returns*. The concept of *modifying what a rule returns* is achieved through **actions**. Actions redefine what the rule returns when it matches input (rather than just returning the input itself). Actions are wrapped in ```{``` and ```}``` curly parentheses, and should contain a ```return``` statement to specify what is returned. For example, we could add an action to our parser to return our input in a different language:
+
+```peg
+start = "hello" { return "bonjour"; }
+```
+
+With input ```hello``` this now outputs ```"bonjour"```. When considering a parser as a translator like this (sometimes also known as a "transpiler"), the language recognized and translated from is the *source language*, and the language produced as a result is the *target language*. 
+
+---
+
+These are the basics. The rest is just learning how these can get more expressive. For example, the patterns of a rule can include more than just strings of text; they can have sequences, alternate options, optional items, and most importantly, they can refer to other rules. And as we shall see later, what goes between the ```{``` and ```}``` of an action is actually a fragment of Javascript code. That means we can do all kinds of interesting transformations in our translations.
+
+---
+
+### Pattern concepts
+
+
+#### This then that (sequence)
+
+There are only a handful of basic concepts used in the design of a rule's pattern. Let's look at the most common ones.
+
+The simplest concept is of the *sequence of items*. And to specify this concept in a pattern, we just put each of the items in the pattern, with spaces between. For example, we could have considered our match of ```hello``` as matching a sequence of characters, and written it as follows. It functions in exactly the same way:
+
+```peg
+start = "h" "e" "l" "l" "o"
+```
+
+#### This or that (alternates)
+
+Grammars would be pretty uselessly inflexible if they only recognized one thing. To make flexibility we have a few options. For example, to recognize one of two words, we could use the ```/``` alternate symbol:
+
+```peg
+start = "hello" / "bye"
+```
+
+Problem is, this can only recognize the words we defined in the grammar. What if we wanted to recognize any old word (even nonsense and imaginary ones)? Well, remembering that we can split a word into a sequence of letters, let's simplify the problem to recognizing any letter. We could start with something like this:
+
+```peg
+letter = "a" / "b" / "c" / "d" / "e"
+```
+
+...and so on. Didn't want to write all 26 letters. 
+
+#### One of these (sets and ranges)
+
+Luckily, there's a simple way to express a *set* of characters. It means, match any one of the items in the set. Sets are delimited by ```[``` and ```]``` square brackets like this:
+
+```peg
+letter = [abcdefghijklmnopqrstuvwxyz]
+```
+
+It's still a bit of a mouthful, so there's also a simpler way to express a *range* of characters, like this:
+
+```peg
+letter = [a-z]
+```
+
+A set can contain several ranges and other characters, for example like thisrs, like this:
+
+```peg
+letter = [a-z] / [A-Z] / "@"
+```
+
+But this can be even more simply written as:
+
+```peg
+letter = [a-zA-Z@]
+```
+
+#### One or more
+
+Now to make a word, we can use our letter rule, and we want to say that a word has *one or more* letters. The *one or more* concept is expressed by adding a ```+``` symbol to the end of the pattern, like this:
+
+```peg
+word = [a-zA-Z@]+
+```
+
+There's also a *zero or more* concept, which is expressed by adding ```*``` instead. We'll use that a bit later.
+
+#### Use that rule again
+
+But, since we'd already defined what a letter is, why not re-use it? Our grammars can easily use rules inside other rules, and this can make things easier to read, more flexible, and eventually also more powerful:
+
+```peg
+word = letter+
+letter = [a-zA-Z@]
+```
+All this means is that to match the ```word``` rule, we have to match the ```letter``` rule, one or more times. Simple!
+
+So how about a sentence? A sentence has one or more words, so we can use the ```+``` concept again. But words are separated by spaces. We can approach this by adding a second element to our pattern, like this:
+
+```peg
+word = letter+ space
+letter = [a-zA-Z@]
+space = " "
+```
+
+This means, to match the rule ```word``` you must find *one or more* ```letters```, followed by a ```space```. 
+
+Finally we can define a sentence as one or more words:
+
+```peg
+sentence = word+
+```
+
+We have a problem though. Given an input string ```"live coding"```, our grammar can match up to ```"live "``` as a word. But it can't match ```"coding"``` as a word, since it doesn't have a space after it. And since that fails, the whole parse will fail too. 
+
+#### Optional items
+
+To work around this, we can use the concept of an *optional item*, which won't fail the parse if it isn't present. We mark the space as optional by adding a ```?``` to it:
+
+```peg
+sentence = word+
+word = letter+ space?
+letter = [a-zA-Z@]
+space = " "
+```
+
+Similarly, we could add support for sentences that end in an optional full stop (period) like this:
+
+```peg
+sentence = word+ "."?
+word = letter+ space?
+letter = [a-zA-Z@]
+space = " "
+```
+
+We might even want to be flexible and allow multiple spaces, in which case we can use the concept of *zero or more times*, which we indicate with ```*```:
+
+```peg
+sentence = word+ "."?
+word = letter+ space*
+letter = [a-zA-Z@]
+space = " "
+```
+
+To recap, ```?``` means zero or one, ```*``` means zero or more, and ```+``` means one or more.
+
+#### Give me the raw text
+
+Now let's look at the output. Given the input ```live coding.``` this grammar will match, and return the matches as an object looking like this: 
+
+```javascript
+[[[["l","i","v","e"],[" "]],[["c","o","d","i","n","g"],[]]],"."]
+```
+
+Look at all those square brackets! They indicate lists (also known as arrays), but where did they all come from?
+
+Simply, every time a *one or more* or *zero or more* rule is used, it will return a list of the items found. In our case for example this is happening in the ```letter+``` pattern. Say we don't want this much detail; we don't care about the individual letters, we just want the words as raw text. We can get that *just give it to me raw* concept by prefixing a pattern with a ```$```. (I don't know why a dollar means *just give it to me raw*.) For example:
+
+```peg
+sentence = word+ "."?
+word = $letter+ space*
+letter = [a-zA-Z@]
+space = " "
+```
+
+Which gives:
+
+```javascript
+[[["live",[" "]],["coding",[]]],"."]
+```
+
+This is better, but there are still lots of lists. Lists are also produced every time a *sequence* concept is used. When a rule has a sequence of more than one element (like our ```word``` rule), it will also return a list to contain the elements' matches. 
+
+
+but probably we don't care about the spaces either (since we have the structure of the list). 
+
+#### Give me a specific part
+
+Quite often we don't actually care about a lot of these items and want to throw them away. This implies *modifying what a rule returns* via an action, but to do this we also need to identify the different parts of the rule in our pattern to capture. We do this by giving them names (also known as labels) marked by the ```:``` colon character. For example, we can label the important part of our ```word``` pattern with the name "text" like this:
+
+```peg
+word = text:$letter+ space*
+```
+
+Once named, you can use this within the action like this:
+
+```peg
+sentence = word+ "."?
+word = text:$letter+ space* { return text; }
+letter = [a-zA-Z@]
+space = " "
+```
+
+I.e. the rule matches words and spaces, but only returns the word parts. We can ignore the full stop in the same way:
+
+```peg
+sentence = words:word+ "."? { return words; }
+word = text:$letter+ space* { return text; }
+letter = [a-zA-Z@]
+space = " "
+```
+
+The result looks immeasurably better:
+
+```javascript
+["live","coding"]
+```
+
+Now you can easily imagine adding another rule for paragraphs as one or more sentences:
+
+```peg
+paragraph = sentence+
+sentence = words:word+ "."? space* { return words; }
+word = text:$letter+ space* { return text; }
+letter = [a-zA-Z@]
+space = " "
+```
+
+With the input "live coding. it is amazing." it returns the following. Notice how the paragraph and sentence structure is now encoded in the list structure:
+
+```javascript
+[["live","coding"],["it","is","amazing"]]
+```
+
+#### Recap
+
+Concept											| Syntax 
+:--- 											| :---
+Exactly the text "abc"							| ```"abc"```
+A then B (sequence) 							| ```A B```
+A or B (ordered choice) 						| ```A / B```
+Optional A 										| ```A?```
+Zero or more A's (returns an array)				| ```A*```
+One or more A's (returns an array)				| ```A+```
+Any one of these characters						| ```[abcdefgABCDEFG]```
+ (or simply)									| ```[a-gA-G]```
+Capture the raw text of the pattern	A			| ```$A```
+Capture A as ```a``` and B as ```b``` for the action | ```a:A b:B```
+
+---
 
 One way of thinking about how to design a language is to start from the result, and work back. The results are the kinds of things our engine can actually produce (or more accurately, the subset of these things that we are likely to want to produce). This way of thinking effectively means designing a collection of short-cuts, short-hands, macros, simple fragments that can expand into fully-specified events. 
 
-
-Rules are specified as combinations (patterns) of other rules, and 'terminals', such as quoted strings. 
+---
 
 
 ### Our editor
@@ -125,16 +360,6 @@ Sketching out a few examples of simple phrases or statements the grammar should 
 You can also think about it in a modular way: what types of things can be plugged into others. E.g., for the form "A + B" you might think of being able to plug numbers, words, and parentheses clauses in, e.g. "a + 1", "x + (y + z)", etc. The rules of the grammar identify things that can be plugged in, and what can be plugged into them.
 
 The core pattern concepts are "exactly this text", "a then b", "a or b", "optionally a", "zero or more a's", "one or more a's", "anything in the range of a to b", "anything except a", "anything that is also", etc. The most important 5 concepts, and how to write them, are:
-
-
-Concept											| Syntax 
-:--- 											| :---
-Exactly the text "abc"							| ```"abc"```
-A then B (sequence) 							| ```A B```
-A or B (ordered choice) 						| ```A / B```
-Optional A 										| ```A?```
-Zero or more A's (returns an array)				| ```A*```
-One or more A's (returns an array)				| ```A+```
 
 These can of course be combined:
 
@@ -267,6 +492,12 @@ MultiLineComment = "/*" s:(!"*/" .)* "*/" { return s.join(""); }
 
 #### Numbers
 
+TL;DR: -- captures decimal numbers and converts to Javascript numbers:
+
+```peg
+number = ("-"? (("."? [0-9]+) / ([0-9]+ "." [0-9]*))) { return +text(); }
+```
+
 Here are a few patterns for whole numbers:
 
 ```peg
@@ -310,8 +541,6 @@ scientific = "-"? (decimal / integer) ("e" "-"? integer)?
 decimal = ("." integer) / (integer "." [0-9]*)
 integer = [0-9]+
 ```
-
-
 
 #### Notes and chords
 
@@ -548,6 +777,63 @@ myrule "myrule" = A B
 
 This also lets the PEG.js parser know this is a likely location for errors (and it will suppress errors from any nested rules). Usually it's best to put these annotations on the lowest-level rules, so that errors become more localized. Definitely don't put them on your highest-level rules!
 
+--- 
+
+### Target language
+
+The target language of a parser is the language that the parser will generate after running. Often this is a lower-level language, that is, more machine-friendly than human-friendly. 
+
+For the purposes of this workshop we have designed a target language that captures some essential concepts for a musical live coding context, such as playing notes and looping patterns, with some methods to vary patterns as they play. It is intentionally limited to make it fairly easy to learn, yet also intentionally designed to make it possible to express a wide variety of ideas. It is *not* designed to be succinct -- that's the job of the user-facing language you create!
+
+Our target language is a bit like the instruction sequences real compilers use, in that it is a list of commands. However ours can also have nested structures as lists of lists. A simple example is a pattern that plays a note every beat:
+
+```["@loop", ["@note", [1, "@wait"]]]```
+
+This is the same, but randomly varies the time between each beat:
+
+```["@loop", ["@note", [["@pick", [1, 1/2, 2]], "@wait"]]]```
+
+Here's a chord:
+
+```[[440, "@set-freq"], "@note", [550, "@set-freq"], "@note", [660, "@set-freq"], "@note"]```
+
+Here's an arpeggio:
+
+```[12, "@repeat", [[["@alt", [440, 550, 660]], "@set-freq"], "@note", [1, "@wait"]]]```
+
+Here are all the important concepts supported and how to format them in the target code:
+
+Concept 						| Format 
+:--- 							| :---
+Do nothing						| ```null```
+A pattern to do three things	| ```[first, second, third]```
+Set note frequency				| ```freq-in-hz, "@set-freq"```
+Set note amplitude				| ```amp-from-zero-to-one, "@set-amp"```
+Set note duration				| ```duration-in-beats, "@set-dur"```
+Play a note						| ```"@note"```
+Loop forever					| ```"@loop", pattern-to-loop```
+Repeat n times					| ```n, "@repeat", pattern-to-loop```
+Wait for n beats (n can be a fraction) | ```n, "@wait"```
+Pick random item to execute		| ```"@pick", pattern-of-items-to-pick-from```
+Cycle through items to execute	| ```"@alt", pattern-of-items-to-alternate```
+Conditional execution 			| ```condition, "@cond", executed-if-true, executed-if-false```
+Probabilistic execution			| ```probability, "@chance", executed-if-true, executed-if-false```
+Print to console				| ```message, "@print"```
+The current note frequency		| ```"@freq"```
+The current note amplitude		| ```"@amp"```
+The current note duration		| ```"@dur"```
+Execute dynamic code			| ```instruction-name-without-the-@, "@execute"```
+
+Concept 						| Format 
+:--- 							| :---
+a + b							| ```a, b, "@add"```
+a - b							| ```a, b, "@sub"```
+a * b							| ```a, b, "@mul"```
+a / b							| ```a, b, "@div"``` (note: division by zero will return zero)
+a % b							| ```a, b, "@mod"``` (note: modulo by zero will return zero)
+a % b	 (Euclidean)			| ```a, b, "@wrap"``` (note: wrap by zero will return zero)
+-a								| ```a, "@neg"```
+
 ---
 
 ### Nerdy corner
@@ -576,48 +862,39 @@ This workshop is an example of [Language-oriented programming](https://en.wikipe
 		<div class="one-half column">
 			<h4>Grammar:</h4>
 			<textarea id="peged"> 
-seq
-= '[' hits:hit* ']' { return hits; }
-  
-hit
-= any / all / kick / snare / hatc / hato / rest
-  
-any
-= '(' hits:hit+ ')' {
-  return function() {
-    hits[random(hits.length)]();
-  }
+sentence 
+= words:word+ _ { 
+	return words; 
 }
-  
-all
-= '{' hits:hit+ '}' {
-  return function() {
-    for (var i=0; i<hits.length; i++) {
-      hits[i]();                  
-    }
-  }
+
+word 
+= text:(group / number / $letter+) _ { 
+	return text; 
 }
-  
-kick
-= 'x' { return function() { kick.note(); }; }
-  
-snare
-= 'o' { return function() { snare.note(); }; }
-  
-hatc
-= '*' { return function() { hat.note(1500); }; }
-  
-hato
-= '-' { return function() { hat.note(15000); }; }
-  
-rest
-= ('.' / ' ') { return function() {} }
+
+group
+= "(" _ body:sentence _ ")" {
+	return body;
+}
+
+_ 
+= [ ]*
+
+letter 
+= [a-zA-Z@]
+
+number 
+= text:$("-"? (([0-9]+ ("." [0-9]*)?) / ("." [0-9]+))) { 
+	return +text; 
+}
 			</textarea>
 			<div id="peg_msg"></div>
 		</div>
 		<div class="one-half column">
 			<h4>Input:</h4>
-			<textarea id="ed">[(x(x*-))x*x{o-}.-x]</textarea>
+
+<textarea id="ed">@loop (@pick (1 2 3) 4 @div @wait @alt (a b c) @print) </textarea>
+
 			<div id="ed_msg"></div>
 			<hr/>
 			<button class="button-primary" id="ed_start">Start</button>
@@ -644,9 +921,13 @@ var peg_msg_div = document.getElementById("peg_msg");
 
 var ed;
 
-var ed_trigger = function(cm) {
+var ed_trigger = function(ed) {
 	// if selection is empty, select entire line or containing block?
-	console.log("exec!");
+	
+	if (parser === undefined) make_parser(); 
+	
+	console.log("trigger", ed.getSelection());
+    execute(ed.getSelection());
 }
 
 // see http://codemirror.net/3/doc/manual.html#keymaps
@@ -664,8 +945,8 @@ var out_div = document.getElementById("output");
 var start_button = document.getElementById("ed_start");
 var stop_button = document.getElementById("ed_stop");
 
-start_button.onclick = function() { parse(); seq.start(); }
-stop_button.onclick = function() { seq.stop(); }
+start_button.onclick = function() { parse(); }
+stop_button.onclick = function() { seq_clear(); }
 
 // events: http://codemirror.net/3/doc/manual.html#events
 // e.g. use the "change" event to respond to code without needing to trigger it. e.g. in-place formatting changes, but maybe also super-live-immediate mode! Other cursor/selection/gutter events. 
@@ -701,17 +982,19 @@ var tracer = {
   }
 };
 
+function execute(text) {
+	var res = parser.parse(text, { trace: tracer });
+    seq_define("default", res); 
+    out_div.innerText = JSON.stringify(res);
+}	
+
 function parse() {
   ed_msg_div.innerText = "";
   out_div.innerText = "";
   try {
-    if (parser === undefined) make_parser();
-    
-    // TODO: insert a tracer
-    var res = parser.parse(ed.getValue(), { trace: tracer });
-    console.log(res);
-    score = res;
-    out_div.innerText = JSON.stringify(res);
+    if (parser === undefined) make_parser(); 
+    execute(ed.getValue());
+  
   } catch(ex) {
     //console.log(ex.message);
     ed_msg_div.innerText = ex.message;
