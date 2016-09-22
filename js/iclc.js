@@ -1007,13 +1007,7 @@ function every(n, p) {
 //// TEST:
 //////////////////////////////////////////////////////////////////////////////////////////
 
-var score = loop([
-	//loop([print(1), print(2)])
-	//["@loop",[[1,"@print"],[2,"@print"]]]
-	//loop([print(1), print(2)], 3)
-	//[3,"@repeat",[[1,"@print"],[2,"@print"]]]
-	chance(0.4, print("X")), wait(), print("Y")
-],10);
+
 
 /*
 score = loop([
@@ -1046,6 +1040,15 @@ score = ["@loop", 4, [
 ]]
 */
 
+/*
+
+var score = loop([
+	//loop([print(1), print(2)])
+	//["@loop",[[1,"@print"],[2,"@print"]]]
+	//loop([print(1), print(2)], 3)
+	//[3,"@repeat",[[1,"@print"],[2,"@print"]]]
+	chance(0.4, print("X")), wait(), print("Y")
+],10);
 
 var q = new Q(score);
 //q.debug = true;
@@ -1057,3 +1060,4 @@ pq.resume(5);
 pq.connect();
 
 console.log(JSON.stringify(pq));
+*/
