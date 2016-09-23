@@ -359,63 +359,6 @@ ws_connect();
 	
 	----------------------
 	
-	LAZY EVAL OPTION
-	Another way is to push non-operation items into a stack but to not eval them.
-	
-	2 4 add => 2, 4 | add   fine
-	(1 1 add) 4 add => (1 1 mul), 4 | add
-	
-	Now the appearance of "add" forces the evaluation of two stack items. 
-	In the case of (1 1 add) the eval also puts this on the stack, and forces evaluation. 
-	I.e an operation can only continue if the args are primitives; otherwise it re-queues. 
-	
-	As cool as lazy eval is, this option doesn't seem to offer anything. 	
-	
-	----------------------
-		
-	UNUSUAL IDEA: 
-	
-	For the expression types, we can avoid needing a shared stack at all. Instead, let the operations have 'placeholders' for the results, which are themselves operations, like promises. @add-values could be an object with placeholders for the results, while "a" and "b" could be wrapped in @eval objects mapping to those placeholders. It might improve safety. 
-	["@add", a, b] 	=> 
-		B: {op: eval, val: b}
-		A: {op: eval, val: a}
-		{ op:"add", a: A, b: B, val: 0 }
-					=> 
-		b,
-		B: {op: eval}
-		a, 
-		A: {op: eval}
-		{ op:"add", a: A, b: B, val: 0 }
-		
-	I thought this might avoid stack thrashing, but I'm not so sure. a & b still have to go via stack.
-		
-	----------------------
-	
-	BAD IDEA, ABANDONED:
-	
-	Another way of doing this is via quoting. If we say a quoted list is not evaluated, we can do things like 
-		(add (A B)) => C    i.e. A B add => C
-	but 
-		(loop `(A B)) => (A B (loop `(A B)))  
-		| `(A B) loop  => `(A B) | loop  => | A B `(A B) loop
-	
-	also
-		`A reverse => A
-	
-	Just needs a marker on a list to say whether it is to be immediately evaluated or not.
-	If quoted rather than evaluated, it pushes onto the stack.
-	
-	What about the weird ones, like N after A?
-							   
-	In the case of after/every we need to modify the list that *contains* the after/every statement. This is really tricky to do in a fully forward eval system.
-	
-	Problem, `A (0.1 chance reverse) implies either A or `A, the latter making no sound at all.
-	We could make an 'else' clause to chance to unquote the list on the stack, but that might not always work, e.g. (4 (0.1 chance (1 add))) has nothing to do with lists; the else would be to do nothing.
-	
-	I think the real problem here is that the operator is the thing that needs to affect the quote status, not the argument. Remember $vau.
-	
-	----------------------
-	
 	Each active sequencer is a PQ
 	Each PQ can contain several Q's of instructions (this allows polyrhythm)
 	PQ's are stored in named slots for easy replacement/removal
@@ -542,10 +485,12 @@ PQ.prototype.at = function() {
 	}
 }
 
+var runaway_limit = 1000;
+
 // how to play the pq in a sample callback:
 PQ.prototype.resume = function(t) {
-	var runaway_limit = 1000; // prevent infinite loops
-	while (!this.empty() && t >= this.at() && --runaway_limit) {
+	runaway_limit = 1000; // prevent infinite loops
+	while (!this.empty() && t >= this.at() && --runaway_limit > 0) {
 		// resume a queue:
 		//console.log("PQ.tick", this.t, this.at());
 		var q = this.heap.pop();
@@ -553,6 +498,10 @@ PQ.prototype.resume = function(t) {
 		if (q.resume(t)) {
 			this.push(q);	// re-schedule it
 		}
+	}
+	if (runaway_limit <= 0) {
+		console.error("unbounded loop detected");
+		this.disconnect();
 	}
 	this.t = t;
 	return this;
@@ -662,6 +611,24 @@ Q.prototype.step = function() {
 				}	
 				break;
 				
+			case "@spawn":
+				// find the name:
+				var name = this.stack.pop();
+				// find the score:
+				var patt = this.todo[this.todo.length-1];
+				if (typeof name != "string" && typeof name != "number") {
+					console.error("spawn name must be a string or number");
+					break;
+				}
+				if (!Array.isArray(patt)) {
+					console.error("spawn body must be a pattern (an array)");
+					break;
+				}
+				
+				// do it:
+				seq_define(name, patt);
+				break;
+			
 			case "@fork":
 				// find the score:
 				var patt = this.todo[this.todo.length-1];
@@ -903,7 +870,7 @@ Q.prototype.step = function() {
 				break;
 			
 			case "@note":
-				console.log("Note", this.context.dur, this.context.amp, this.context.freq);
+				//console.log("Note", this.context.dur, this.context.amp, this.context.freq);
 				strings.note(this.context.freq, this.context.amp);
 				break;
 			
@@ -942,18 +909,13 @@ Q.prototype.step = function() {
 }
 
 Q.prototype.resume = function(t) {
-	var runaway_limit = 1000;
 	while (--runaway_limit > 0 && this.todo.length && this.t < t) {
 		this.step();	
-	}
-	if (runaway_limit == 0) {
-		console.error("unbounded loop detected");
 	}
 	return this.todo.length > 0; // returns false if Q has no more events
 }
 
 Q.prototype.flush = function() {
-	var runaway_limit = 1000;
 	while (--runaway_limit > 0 && this.todo.length) {
 		this.step();	
 	}
@@ -965,6 +927,12 @@ Q.prototype.flush = function() {
 //////////////////////////////////////////////////////////////////////////////////////////
 // BUILDERS
 //////////////////////////////////////////////////////////////////////////////////////////
+
+function define(name, patt) {
+	// create a new sequence:
+	// will call seq_define(name, score)
+	return [name, "@spawn", patt];
+}
 
 function wait(n) {
 	if (n != undefined) n = 1;
@@ -1060,4 +1028,17 @@ pq.resume(5);
 pq.connect();
 
 console.log(JSON.stringify(pq));
+*/
+
+
+/*
+	Question -- what happens when we trigger stuff?
+	
+	Case 0: any bit of code should be able to spawn a *named* player, so that this can later be stopped/replaced. [name "@spawn" patt] => seq_define(name, patt)
+	
+	Case 1: just grabbed a random bit of text and triggered it. It should run independently.
+	
+	Case 2: run any bit of code, it should replace everything? Like replacing the 'default' player. Maybe, or maybe just have a key combo for 'stop everything first, then run this'?
+	
+	Case 3: have named patterns, which don't play by default (but can be used by other processes). Then have named players, that can use them.
 */
