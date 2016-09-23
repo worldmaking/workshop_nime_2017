@@ -16,11 +16,13 @@
 <script src="js/highlight.min.js"></script>
 <script src="js/hljs/javascript.min.js"></script>
 
+<script src="js/peg.min.js"></script>
+<script src="js/pegjs.pegjs.js"></script>
+
 <script src="js/codemirror.min.js"></script>
 <script src="js/mode/pegjs.min.js"></script>
 
-<script src="js/peg.min.js"></script>
-<script src="js/pegjs.pegjs.js"></script>
+<script src="js/big.min.js"></script>
 <script src="js/gibberish.min.js"></script>
 <script src="js/iclc.js"></script>
 
@@ -823,16 +825,20 @@ The current note frequency		| ```"@freq"```
 The current note amplitude		| ```"@amp"```
 The current note duration		| ```"@dur"```
 Execute dynamic code			| ```instruction-name-without-the-@, "@execute"```
+Send message over websocket		| ```message, "@ws"```
+Put a copy on the stack			| ```item, "@dup"``` (stack becomes: item, item)
 
 Concept 						| Format 
 :--- 							| :---
-a + b							| ```a, b, "@add"```
-a - b							| ```a, b, "@sub"```
-a * b							| ```a, b, "@mul"```
-a / b							| ```a, b, "@div"``` (note: division by zero will return zero)
-a % b							| ```a, b, "@mod"``` (note: modulo by zero will return zero)
-a % b	 (Euclidean)			| ```a, b, "@wrap"``` (note: wrap by zero will return zero)
+a + b							| ```a, b, "@add"``` or ```a, b, "@+"```
+a - b							| ```a, b, "@sub"``` or ```a, b, "@-"```
+a * b							| ```a, b, "@mul"``` or ```a, b, "@*"```
+a / b							| ```a, b, "@div"``` or ```a, b, "@/"```
+a % b	 (Euclidean)			| ```a, b, "@wrap"``` or ```a, b, "@%"```
+a % b	 (Floored)				| ```a, b, "@mod"```
 -a								| ```a, "@neg"```
+
+Note: division, modulo or wrap by zero will return zero.
 
 ---
 
@@ -881,7 +887,7 @@ _
 = [ \n\t]* // any spaces, tabs or newlines
 
 letter 
-= [a-zA-Z@-] // any letter, or hyphen, or @
+= [a-zA-Z@+*/%?-] // any letter, or hyphen, or @
 
 number 
 = text:$("-"? (([0-9]+ ("." [0-9]*)?) / ("." [0-9]+))) { 
@@ -895,9 +901,10 @@ number
 
 <textarea id="ed">
 @loop (
-	(@pick (4 5 6 8 10 12 15 16) 50 @mul) @set-freq 
+	(@alt (16 6 15 5 10 4 12) 44 @mul) @set-freq 
+    1 @pick (2 3) @div @set-amp
 	@note
-	@alt (1 2 2) 4 @div @wait 
+	@alt (1 5 1 9) 32 @div @wait 
 )
 </textarea>
 

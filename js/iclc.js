@@ -167,8 +167,13 @@ Gibberish.Time.export();
 Gibberish.Binops.export();
 
 bpm = 100;	// somehow need to make this globally modifiable
-sr = 44100;
+sr = Gibberish.context.sampleRate;
 bpm2bpa = 1./(60*sr); // multiplier to convert bpm to beats per audio sample
+
+external = {
+	linked: false,
+	t: 0,
+}
 
 kick = new Gibberish.Kick({ decay:.2 }).connect();
 snare = new Gibberish.Snare({ snappy: 1.5 }).connect();
@@ -219,13 +224,16 @@ function ws_connect() {
 			// client messages sent with a "*" prefix will have the "*" stripped,
 			// but the server will broadcast them all back to all other clients
 			// broadcast a hello:
-			ws_send("*hello "+Math.floor(Math.random()*100));
+			ws_send("*0 hello");
+			
+			external.linked = true;
         };
 
         ws.onclose = function(ev) {
             console.log('DISCONNECTED from ' + address);
             // set up an auto-reconnect task:
             //connectTask = setInterval(ws_connect, 1000);
+			external.linked = false;
         };
 
         ws.onmessage = function(ev) {
@@ -235,7 +243,12 @@ function ws_connect() {
         		var tree = JSON.parse(ev.data);
         		console.log("parsed " + JSON.stringify(tree));
         	} else {
-        		console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
+        		if (ev.data.substr(0, 4) == "get ") {
+        			external.t = +ev.data.substr(4);
+					if (external.linked) seq_external_resume();
+        		} else {    		
+	        		console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
+	        	}
         	}
         };
 
@@ -245,8 +258,11 @@ function ws_connect() {
 }
 
 function ws_send(msg) {
-	if(wsocket) wsocket.send(msg);
-        	
+	if(wsocket) {
+		wsocket.send(msg);
+	} else {
+		console.log("websocket send:", msg);
+	}    	
 }
 
 ws_connect();
@@ -403,11 +419,17 @@ seq_stop = function(name) {
 	}
 }
 
+seq_external_resume = function(t) {
+	for (k in sequencers) {
+		sequencers[k].resume(external.t + bpm * bpm2bpa);
+	} 
+}
+
 // we could also call this an agent, or player, or scheduler, etc.
 // it can contain multiple command queues (type Q), and executes them in an interleaved way
 // to ensure proper timing -- a bit like coroutines. 
 function PQ(score, name) {
-	this.t = 0;
+	this.t = external.t;
 	this.heap = []; // the list of active command queues (next to resume is at the top)
 	this.name = name || "default";
 	
@@ -444,7 +466,7 @@ PQ.prototype.disconnect = function() {
 
 // how to play the pq in a sample callback:
 PQ.prototype.tick = function() {
-	this.resume(this.t + bpm * bpm2bpa);
+	if (!external.linked) this.resume(this.t + bpm * bpm2bpa);
 }
 
 
@@ -516,7 +538,7 @@ function Q(score, t, pq) {
 	this.context = {
 		freq: 440,
 		amp: 0.5,
-		dur: 1/4,
+		dur: 1,
 	};
 	this.debug = false;
 	if (score) this.push(score);
@@ -548,6 +570,14 @@ Q.prototype.step = function() {
 			//console.log(op);
 		
 			switch (op) {
+			
+			case "@dup":
+				// duplicate whatever is on the stack
+				this.stack.push(
+					this.stack[this.stack.length-1]
+				);
+				break;
+			
 			case "@wait": 
 				// TODO: verify stack top is a valid number...
 				// pop wait time off the stack:
@@ -825,34 +855,41 @@ Q.prototype.step = function() {
 				}
 				break;
 		
+			case "@+":
 			case "@add":
 				var b = this.stack.pop();
 				var a = this.stack.pop();
 				this.stack.push(a+b);
 				break;
 			
-			case "@neg":
-				var a = this.stack.pop();
-				this.stack.push(-a);
-				break;
-			
+			case "@-":
 			case "@sub":
 				var b = this.stack.pop();
 				var a = this.stack.pop();
 				this.stack.push(a-b);
 				break;
 			
+			case "@*":
 			case "@mul":
 				var b = this.stack.pop();
 				var a = this.stack.pop();
 				this.stack.push(a*b);
 				break;
 			
+			case "@/":
 			case "@div":
 				var b = this.stack.pop();
 				var a = this.stack.pop();
 				if (b == 0) this.stack.push(0);
 				else  		this.stack.push(a/b);
+				break;
+			
+			case "@%":
+			case "@wrap":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				if (b == 0) this.stack.push(0);
+				else  		this.stack.push(wrap(a, b));
 				break;
 			
 			case "@mod":
@@ -862,15 +899,14 @@ Q.prototype.step = function() {
 				else  		this.stack.push(a%b);
 				break;
 			
-			case "@wrap":
-				var b = this.stack.pop();
+			case "@neg":
 				var a = this.stack.pop();
-				if (b == 0) this.stack.push(0);
-				else  		this.stack.push(wrap(a, b));
+				this.stack.push(-a);
 				break;
 			
 			case "@note":
-				//console.log("Note", this.context.dur, this.context.amp, this.context.freq);
+				// this is not in any way accurate, just a hack to make @set-dur do something semi-meaningful
+				strings.damping = 1 - (-6 / Math.log(this.context.dur * this.context.freq / sr));
 				strings.note(this.context.freq, this.context.amp);
 				break;
 			
@@ -896,8 +932,12 @@ Q.prototype.step = function() {
 			case "@time": this.stack.push(this.t); break;
 			case "@rate": this.stack.push(this.rate); break;
 				
-			case "@ws": 
-				ws_send	(this.stack.pop());
+			case "@ws":
+				// eat up all the stack:
+				var msg = this.stack.join(" ");
+				this.stack.length = 0;
+				 
+				ws_send(this.t + " " + msg);
 				break;
 				
 			default:
