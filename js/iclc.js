@@ -661,7 +661,7 @@ Q.prototype.step = function() {
 			
 			case "@fork":
 				// find the score:
-				var patt = this.todo[this.todo.length-1];
+				var patt = this.todo.pop();
 				// argument *must* be a pattern
 				if (!Array.isArray(patt)) {
 					console.error("loop body must be a pattern (an array)");
@@ -677,10 +677,17 @@ Q.prototype.step = function() {
 					console.error("can't fork without a scheduler, couldn't find scheduler", this.pq);
 				}
 				break;
-		
-			case "@print":
-				// TODO: handle item.argc > 1
-				console.log("PRINT!", this.stack.pop());
+				
+			case "@fork-loop": 
+				// find the score:
+				var patt = this.todo.pop();
+				// argument *must* be a pattern
+				if (!Array.isArray(patt)) {
+					console.error("loop body must be a pattern (an array)");
+					break;
+				}
+				this.todo.push(["@fork", ["@loop", patt]]);
+			
 				break;
 		
 			case "@loop":
@@ -712,6 +719,11 @@ Q.prototype.step = function() {
 				for (i=1; i<rpts; i++) {
 					this.todo.push(patt);
 				}
+				break;
+		
+			case "@print":
+				// TODO: handle item.argc > 1
+				console.log("PRINT!", this.stack.pop());
 				break;
 		
 			case "@pick": 
@@ -938,6 +950,19 @@ Q.prototype.step = function() {
 				this.stack.length = 0;
 				 
 				ws_send(this.t + " " + msg);
+				break;
+				
+			case "@kick": 
+				kick.amp = 0.5 * this.stack.pop(); // pitch, decay, tone, amp
+				kick.note(); 
+				break;
+			case "@snare": 
+				snare.amp = 0.25 * this.stack.pop(); // cutoff:1000, decay:11025, tune:0, snappy:.5, amp:1
+				snare.note();
+				break;
+			case "@hat": 
+				hat.amp = this.stack.pop(); 
+				hat.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
 				break;
 				
 			default:
