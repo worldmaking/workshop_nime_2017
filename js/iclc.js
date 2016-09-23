@@ -896,6 +896,10 @@ Q.prototype.step = function() {
 			case "@time": this.stack.push(this.t); break;
 			case "@rate": this.stack.push(this.rate); break;
 				
+			case "@ws": 
+				ws_send	(this.stack.pop());
+				break;
+				
 			default:
 				console.error("unknown instruction operator:", op);
 				return;
