@@ -1,0 +1,256 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>ICLC 2016 Workshop: Design a Mini-Language</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="css/normalize.css">
+<link rel="stylesheet" href="css/skeleton.css">
+<link rel="stylesheet" href="css/codemirror.css">
+<link rel="stylesheet" href="css/github.min.css">
+
+<script src="js/jquery.min.js"></script>
+
+<script src="js/marked.js"></script>
+<script src="js/highlight.min.js"></script>
+<script src="js/hljs/javascript.min.js"></script>
+
+<script src="js/peg.min.js"></script>
+<script src="js/pegjs.pegjs.js"></script>
+
+<script src="js/codemirror.min.js"></script>
+<script src="js/mode/pegjs.min.js"></script>
+
+<script src="js/big.min.js"></script>
+<script src="js/gibberish.min.js"></script>
+<script src="js/iclc.js"></script>
+
+<style>
+/* see http://getskeleton.com/ */
+html { font-size: 50%; } 
+table { width:100%; }
+</style>
+</head>
+<body>
+
+<script type="bogus" id="sourcetext">
+
+# Target virtual machine
+
+<div id="toc"></div>
+
+**Click on any of the code samples below to hear them!**
+
+The VM comes with a small number of instruments to get things going. Here's a plucked string instrument. There are two ways to trigger it. You can use @pluck-note to set the frequency and amplitude for each note like this:
+
+<pre><code onclick="seq.play_element_text(this)">[440, 1, "@pluck-note"]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[220, 0.25, "@pluck-note"]</code></pre>
+
+Or you can set the frequency and amplitude as contextual variables, and just use @pluck to trigger using these values. This can allow a bit more flexibility in how these values are calculated:
+
+<pre><code onclick="seq.play_element_text(this)">["@pluck"]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[[330, "@set-freq"], [0.5, "@set-amp"], "@pluck"]</code></pre>
+
+There are also some percussion sounds, which either grab amplitude from the context (set using @set-amp), or specify it using the -note variants:
+
+<pre><code onclick="seq.play_element_text(this)">[1, "@hat-note"]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[1, "@kick-note"]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[1, "@snare-note"]</code></pre>
+
+
+<pre><code onclick="seq.play_element_text(this)">[[1, "@set-amp"], "@hat"]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[[1, "@set-amp"], "@kick"]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[[1, "@set-amp"], "@snare"]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[4, "@repeat", [
+	[["@alt", [0.3, 1]], "@set-amp"], 
+	8, "@repeat", ["@hat", 0.125, "@wait"]
+]]</code></pre>
+
+---
+
+A list with several events normally happens at the same time:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	[220, "@set-freq"], "@pluck", 
+	[330, "@set-freq"], "@pluck"
+]</code></pre>
+
+
+Unless you add a n,@wait:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	[220, "@set-freq"], "@pluck", 
+	1, "@wait",
+	[330, "@set-freq"], "@pluck"
+]</code></pre>
+
+Here's how to do something a specific number of times:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	4, "@repeat", [ "@pluck", 0.25, "@wait" ]
+]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[
+	4, "@repeat", [ "@pluck", 0.25, "@wait" ],
+	[220, "@set-freq"], "@pluck"
+]</code></pre>
+
+Here's how to do something forever:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ "@pluck", 0.25, "@wait" ]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+However, nothing after the @looped list will ever be run:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ "@pluck", 0.25, "@wait" ],
+	"@loop", [[220, "@set-freq"], "@pluck", 1, "@wait"]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+To run a loop in parallel, use @fork-loop []:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@fork-loop", [ "@pluck", 0.25, "@wait" ],
+	"@fork-loop", [[220, "@set-freq"], "@pluck", 1, "@wait"]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+And to run something in parallel without looping it, just use @fork []:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		"@pluck", 
+		"@fork", [
+			0.25, "@wait", 
+			[550, "@set-freq"], "@pluck",
+			0.33, "@wait", 
+			[660, "@set-freq"], "@pluck"
+		],
+		1, "@wait"
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+---
+
+Anywhere that a number would go, you can insert an expression. Here are some fun expressions.
+
+Here's picking a value at random from a list, instead of putting the @set-freq and @set-amp values as numbers:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		["@pick", [330, 440, 550, 660]], "@set-freq",
+		["@pick", [1, 0.7, 0.4]], "@set-amp",
+		"@pluck",
+		0.25, "@wait"
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+Here's alternating between a set of values in a list, one at a time:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		["@alt", [330, 440, 550, 660]], "@set-freq",
+		["@alt", [1, 0.7, 0.4]], "@set-amp",
+		"@pluck",
+		0.25, "@wait"
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+Here's way to set the probability of something happening. Note that two lists have to be given after the "@chance"; either the first is run (if the chance happens), else the other one will be run. If you don't care about the 'else' case, just put an empty list: [].
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		0.1, 
+		"@chance",
+		["@kick", 0.5, "@wait"],
+		["@hat", 0.125, "@wait"]
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+
+Another way of getting some random is to use the @rand (which generates a number between 0 and 1), @srand (which generates a number between -1 and 1), and n,@randi (which generates a number between 0 and n-1):
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		"@rand", "@set-amp",
+		"@pluck",
+		0.25, "@wait"
+	]
+]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		"@pluck",
+		[3, "@randi"], "@wait"
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+There are several basic math functions that can be used to map numbers into useful ranges. Note that most math functions require the arguments first, e.g. use ```[a,b,@+]``` to add a and b:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		[[[4, "@randi"], 1, "@+"], 110, "@*"], "@set-freq",
+		"@pluck",
+		0.25, "@wait"
+	]
+]</code></pre>
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		[["@srand", 10, "@*"], 110, "@+"], "@set-freq",
+		"@pluck",
+		0.25, "@wait"
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+
+</script>
+
+<div class="container">
+	<div class="row" style="margin-top: 25%">
+		<div class="full column" id="main_body" />
+	</div>
+</div>
+
+<script>
+
+var body = document.getElementById('sourcetext').innerText;
+document.getElementById('main_body').innerHTML = marked(body);
+document.getElementById('toc').innerHTML = marked(toc.join("\n"));
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+//seq_define("default", code); 
+
+</script>
+
+</body>
+</html>

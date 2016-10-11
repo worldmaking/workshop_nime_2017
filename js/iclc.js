@@ -245,7 +245,7 @@ function ws_connect() {
         	} else {
         		if (ev.data.substr(0, 4) == "get ") {
         			external.t = +ev.data.substr(4);
-					if (external.linked) seq_external_resume();
+					if (external.linked) seq.external_resume();
         		} else {    		
 	        		console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
 	        	}
@@ -278,7 +278,7 @@ ws_connect();
 	or it can be perform a(b,c), e.g. note(60, 100)
 	we could make the former explicit by ["seq", a, b, c] but it would be nice not to have to
 	we might be able to infer seq or expr by context? E.g. the root of a score must always be seq.
-	or just make instructions have special names, e.g. "@note"
+	or just make instructions have special names, e.g. "@pluck"
 	
 	any argument can be another bytecode to interpret
 	[note, a, [b, c], d]; in this case [b, c] must be an expression, right?
@@ -383,21 +383,39 @@ ws_connect();
 */
 //////////////////////////////////////////////////////////////////////////////////////////
 
+// exported:
+seq = {};
+
 // dictionary of active sequencers.
 sequencers = {};
 
 // clear all sequencers (e.g. STOP button)
-seq_clear = function() {
+seq.clear = function() {
 	for (k in sequencers) {
 		sequencers[k].disconnect();
 		delete sequencers[k];
 	}
 }
 
+// triggered by the onclick of an html element
+// grabs the innertext and plays it
+// e.g. <a href="#" onclick="seq.play_element_text(this)">["@pluck"]</a>
+seq.play_element_text = function(element) {
+	// play element's text:
+	seq.define("default", JSON.parse(element.innerText));
+	// stop the click from selecting the text:
+	if(document.selection && document.selection.empty) {
+        document.selection.empty();
+    } else if(window.getSelection) {
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+    }
+}
+
 // define a sequencer. 
 // if name didn't exist, create a new one.
 // if name already exists, replace score. If no score, terminate the sequencer.
-seq_define = function(name, score) {
+seq.define = function(name, score) {
 	if (!typeof name == "string") {
 		console.log("error: missing sequence name"); return;
 	}
@@ -409,7 +427,7 @@ seq_define = function(name, score) {
 }
 
 // terminate a named sequencer.
-seq_stop = function(name) {
+seq.stop = function(name) {
 	if (!typeof name == "string") {
 		console.log("error: missing sequence name"); return;
 	}
@@ -419,7 +437,7 @@ seq_stop = function(name) {
 	}
 }
 
-seq_external_resume = function(t) {
+seq.external_resume = function(t) {
 	for (k in sequencers) {
 		sequencers[k].resume(external.t + bpm * bpm2bpa);
 	} 
@@ -443,7 +461,7 @@ function PQ(score, name) {
 	}
 	sequencers[this.name] = this; // auto-connect()?
 	
-	console.log('creating sequencer', this.name);
+	//console.log('creating sequencer', this.name);
 }
 
 PQ.prototype.connect = function() {
@@ -459,7 +477,7 @@ PQ.prototype.disconnect = function() {
 	if (idx >= 0) Gibberish.sequencers.splice( idx, 1 );
 	delete sequencers[this.name];
 	
-	console.log('stopping sequencer', this.name);
+	//console.log('stopping sequencer', this.name);
 	
 	return this;
 }
@@ -537,7 +555,7 @@ function Q(score, t, pq) {
 	this.stack = [];
 	this.context = {
 		freq: 440,
-		amp: 0.5,
+		amp: 1,
 		dur: 1,
 	};
 	this.debug = false;
@@ -568,6 +586,14 @@ Q.prototype.step = function() {
 		} else if (typeof item == "string" && item.charAt(0) == "@") {
 			var op = item;
 			//console.log(op);
+			
+			// special cases:
+			if (op.substring(0, 5) == "@set-") {
+				var name = op.substring(5);
+				this.context[name] = this.stack.pop();
+				return;
+			}
+			
 		
 			switch (op) {
 			
@@ -656,7 +682,7 @@ Q.prototype.step = function() {
 				}
 				
 				// do it:
-				seq_define(name, patt);
+				seq.define(name, patt);
 				break;
 			
 			case "@fork":
@@ -739,6 +765,34 @@ Q.prototype.step = function() {
 				}
 				break;
 			
+			case "@alt":
+		
+				var patt = this.todo.pop();
+				if (Array.isArray(patt) && patt.length) {
+			
+					// rotates the pattern and plays the first item only each time
+					// remove '1st' item, schedule, then push to back:
+					var first = patt.splice(0, 1);
+					this.todo.push(first);
+					patt.push(first);
+				
+				} else {
+					console.error("rotate instruction requires a pattern (array)");
+					break;
+				}
+				break;
+		
+			case "@chance":
+				var prob = this.stack.pop();
+				var pt = this.todo.pop();
+				if ((random() < prob)) {
+					// skip item after
+					this.todo.pop();
+					// push the pt:
+					this.todo.push(pt);
+				}
+				break;
+		
 			case "@reverse":
 				// schedule the argument, then reverse it:
 				// TODO: is this the right order? or reverse then schedule?
@@ -819,23 +873,6 @@ Q.prototype.step = function() {
 				}
 				break;
 		
-			case "@alt":
-		
-				var patt = this.todo.pop();
-				if (Array.isArray(patt) && patt.length) {
-			
-					// rotates the pattern and plays the first item only each time
-					// remove '1st' item, schedule, then push to back:
-					var first = patt.splice(0, 1);
-					this.todo.push(first);
-					patt.push(first);
-				
-				} else {
-					console.error("rotate instruction requires a pattern (array)");
-					break;
-				}
-				break;
-		
 			case "@execute":
 				var instr = this.stack.pop();
 				if (typeof instr != "string") {
@@ -845,17 +882,6 @@ Q.prototype.step = function() {
 				this.todo.push("@"+instr);
 				break;
 			
-			case "@chance":
-				var prob = this.stack.pop();
-				var pt = this.todo.pop();
-				if (!(random() < prob)) {
-					// skip item after
-					this.todo.pop();
-					// push the pt:
-					this.todo.push(pt);
-				}
-				break;
-		
 			case "@cond":
 				var test = this.stack.pop();
 				var pt = this.todo.pop();
@@ -865,6 +891,21 @@ Q.prototype.step = function() {
 					// push the pt:
 					this.todo.push(pt);
 				}
+				break;
+		
+			case "@random":
+			case "@rand":
+				this.stack.push(Math.random());
+				break;
+				
+			case "@srandom":
+			case "@srand":
+				this.stack.push(Math.random()*2-1);
+				break;
+			
+			case "@randi":
+				var n = this.stack.pop();
+				this.stack.push(random(n));
 				break;
 		
 			case "@+":
@@ -916,26 +957,90 @@ Q.prototype.step = function() {
 				this.stack.push(-a);
 				break;
 			
-			case "@note":
-				// this is not in any way accurate, just a hack to make @set-dur do something semi-meaningful
-				strings.damping = 1 - (-6 / Math.log(this.context.dur * this.context.freq / sr));
-				strings.note(this.context.freq, this.context.amp);
+			// conditionals
+			// should they return 1 and 0 instead of bools?
+			case "@>":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a>b);
+				break;
+			case "@>=":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a>=b);
+				break;
+			case "@<":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a<b);
+				break;
+			case "@<=":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a<=b);
+				break;
+			case "@==":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a==b);
+				break;
+			case "@!=":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a!=b);
+				break;
+			case "@!":
+			case "@not":
+				var a = this.stack.pop();
+				this.stack.push(!a);
+				break;
+			case "@&&":
+			case "@and":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a && b);
+				break;
+			case "@||":
+			case "@or":
+				var b = this.stack.pop();
+				var a = this.stack.pop();
+				this.stack.push(a || b);
 				break;
 			
-			case "@set-amp": 
-				// TODO: validate
-				var v = this.stack.pop();
-				this.context.amp = v;
+			
+			
+			// v ilo ihi olo ohi @map
+			case "@map":
+				var ohi = this.stack.pop();
+				var olo = this.stack.pop();
+				var ihi = this.stack.pop();
+				var ilo = this.stack.pop();
+				
+				if (ihi == ilo) {
+					this.stack.push(olo);
+				} else {
+					this.stack.push(olo + (ohi-olo) * ((v-ilo) / (ihi-ilo)));				
+				}
 				break;
-			case "@set-freq": 
-				// TODO: validate
-				var v = this.stack.pop();
-				this.context.freq = v;
+			
+			case "@pluck":
+				if (this.context.freq <= 0) break;
+				// this is not in any way accurate, just a hack to make @set-dur do something semi-meaningful
+				strings.damping = 1 - (-6 / Math.log(this.context.dur * this.context.freq / sr));
+				// strings by default seem too quiet:
+				strings.note(this.context.freq, this.context.amp * this.context.amp * 2);
 				break;
-			case "@set-dur": 
-				// TODO: validate
-				var v = this.stack.pop();
-				this.context.dur = v;
+			
+			// [amp, freq, "@pluck"]
+			case "@pluck-note":
+				var amp = this.stack.pop();
+				var freq = this.stack.pop();
+				
+				if (freq <= 0) break;
+				// this is not in any way accurate, just a hack to make @set-dur do something semi-meaningful
+				strings.damping = 1 - (-6 / Math.log(this.context.dur * freq / sr));
+				// strings by default seem too quiet:
+				strings.note(freq, amp * amp * 2);
 				break;
 				
 			case "@freq": this.stack.push(this.context.freq); break;
@@ -952,16 +1057,29 @@ Q.prototype.step = function() {
 				ws_send(this.t + " " + msg);
 				break;
 				
-			case "@kick": 
+			case "@kick-note": 
 				kick.amp = 0.5 * this.stack.pop(); // pitch, decay, tone, amp
 				kick.note(); 
 				break;
-			case "@snare": 
+			case "@snare-note": 
 				snare.amp = 0.25 * this.stack.pop(); // cutoff:1000, decay:11025, tune:0, snappy:.5, amp:1
 				snare.note();
 				break;
-			case "@hat": 
+			case "@hat-note": 
 				hat.amp = this.stack.pop(); 
+				hat.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
+				break;
+				
+			case "@kick": 
+				kick.amp = 0.5 * this.context.amp; // pitch, decay, tone, amp
+				kick.note(); 
+				break;
+			case "@snare": 
+				snare.amp = 0.25 * this.context.amp; // cutoff:1000, decay:11025, tune:0, snappy:.5, amp:1
+				snare.note();
+				break;
+			case "@hat": 
+				hat.amp = this.context.amp; 
 				hat.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
 				break;
 				
@@ -1059,7 +1177,7 @@ score = loop([
 		//cond(alt([0,1,0]), print("YES"), print("NO")),
 		["@alt",[0,1,0]],"@cond",["YES","@print"],["NO","@print"],
 		"@alt", [440, 550, 660], "@freq",
-		"@note",
+		"@pluck",
 	
 	print("___________")
 ];

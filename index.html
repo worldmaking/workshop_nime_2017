@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <title>ICLC 2016 Workshop: Design a Mini-Language</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hoodie.css">
 <link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
 <link rel="stylesheet" href="css/normalize.css">
 <link rel="stylesheet" href="css/skeleton.css">
@@ -25,6 +26,12 @@
 <script src="js/big.min.js"></script>
 <script src="js/gibberish.min.js"></script>
 <script src="js/iclc.js"></script>
+
+<!-- Load the dynamic version of hoodie.js that includes all the plugin code-->
+<script src="/_api/_files/hoodie.js"></script>
+
+<script src="assets/vendor/hoodie.accountbar.bootstrap.js"></script>
+<script src="assets/vendor/bootstrap.modalform.js"></script>
 
 <style>
 /* see http://getskeleton.com/ */
@@ -789,19 +796,19 @@ For the purposes of this workshop we have designed a target language that captur
 
 Our target language is a bit like the instruction sequences real compilers use, in that it is a list of commands. However ours can also have nested structures as lists of lists. A simple example is a pattern that plays a note every beat:
 
-```["@loop", ["@note", [1, "@wait"]]]```
+```["@loop", ["@pluck", [1, "@wait"]]]```
 
 This is the same, but randomly varies the time between each beat:
 
-```["@loop", ["@note", [["@pick", [1, 1/2, 2]], "@wait"]]]```
+```["@loop", ["@pluck", [["@pick", [1, 1/2, 2]], "@wait"]]]```
 
 Here's a chord:
 
-```[[440, "@set-freq"], "@note", [550, "@set-freq"], "@note", [660, "@set-freq"], "@note"]```
+```[[440, "@set-freq"], "@pluck", [550, "@set-freq"], "@pluck", [660, "@set-freq"], "@pluck"]```
 
 Here's an arpeggio:
 
-```[12, "@repeat", [[["@alt", [440, 550, 660]], "@set-freq"], "@note", [1, "@wait"]]]```
+```[12, "@repeat", [[["@alt", [440, 550, 660]], "@set-freq"], "@pluck", [1, "@wait"]]]```
 
 Here are all the important concepts supported and how to format them in the target code:
 
@@ -812,7 +819,7 @@ A pattern to do three things	| ```[first, second, third]```
 Set note frequency				| ```freq-in-hz, "@set-freq"```
 Set note amplitude				| ```amp-from-zero-to-one, "@set-amp"```
 Set note duration				| ```duration-in-beats, "@set-dur"```
-Play a note						| ```"@note"```
+Play a note						| ```"@pluck"```
 Loop forever					| ```"@loop", pattern-to-loop```
 Repeat n times					| ```n, "@repeat", pattern-to-loop```
 Wait for n beats (n can be a fraction) | ```n, "@wait"```
@@ -901,19 +908,19 @@ number
 
 <textarea id="ed">
 @fork-loop(
-	@alt (0.01 0.2 0.01) @hat
+	@alt (0.01 0.2 0.01) @hat-note
 	@alt (1 3) 8 @div @wait
 )
 @fork-loop (
 	(@alt (14 15 16 17 18) 44 @mul) @set-freq 
     0.05 @set-amp
-	@note
+	@pluck
 	@pick (5 7) 32 @div @wait 
 )
 @fork-loop (
 	(@alt (16 6 15 5 10 4 12) 44 @mul) @set-freq 
     1 @pick (2 3 5 6 5 6 5) @div @set-amp
-	@note
+	@pluck
 	@alt (5 1 9 1) 32 @div @wait 
 )
 </textarea>
@@ -969,7 +976,7 @@ var start_button = document.getElementById("ed_start");
 var stop_button = document.getElementById("ed_stop");
 
 start_button.onclick = function() { parse(); }
-stop_button.onclick = function() { seq_clear(); }
+stop_button.onclick = function() { seq.clear(); }
 
 // events: http://codemirror.net/3/doc/manual.html#events
 // e.g. use the "change" event to respond to code without needing to trigger it. e.g. in-place formatting changes, but maybe also super-live-immediate mode! Other cursor/selection/gutter events. 
@@ -1007,7 +1014,7 @@ var tracer = {
 
 function execute(text) {
 	var res = parser.parse(text, { trace: tracer });
-    seq_define("default", res); 
+    seq.define("default", res); 
     out_div.innerText = JSON.stringify(res);
 }	
 
