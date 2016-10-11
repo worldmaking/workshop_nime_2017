@@ -179,7 +179,7 @@ kick = new Gibberish.Kick({ decay:.2 }).connect();
 snare = new Gibberish.Snare({ snappy: 1.5 }).connect();
 hat = new Gibberish.Hat({ amp: 1.5 }).connect();
 conga = new Gibberish.Conga({ amp:.5, freq:200 }).connect();
-strings = new Gibberish.PolyKarplusStrong({maxVoices: 10}).connect();
+strings = new Gibberish.PolyKarplusStrong({maxVoices: 32}).connect();
 
 var builtins = {
 	// sounds:
@@ -451,7 +451,7 @@ function PQ(score, name) {
 	this.heap = []; // the list of active command queues (next to resume is at the top)
 	this.name = name || "default";
 	
-	if (score) { this.fork(score, this.t); }
+	if (score) { this.fork(score, this.t, null); }
 	
 	// replace?
 	var seq = sequencers[this.name];
@@ -488,8 +488,8 @@ PQ.prototype.tick = function() {
 }
 
 
-PQ.prototype.fork = function(score, t) {
-	var q = new Q(score, t, this.name);
+PQ.prototype.fork = function(score, t, parentQ) {
+	var q = new Q(score, t, this.name, parentQ);
 	this.push(q);
 }
 
@@ -547,19 +547,33 @@ PQ.prototype.resume = function(t) {
 	return this;
 }
 
-function Q(score, t, pq) {
+function Q(score, t, pq, parentQ) {
 	this.t = t || 0;
 	this.pq = pq;
 	this.rate = 1;
 	this.todo = [];
 	this.stack = [];
-	this.context = {
-		freq: 440,
-		amp: 1,
-		dur: 1,
-	};
+	this.parentQ = parentQ;
+	if (parentQ) {
+		this.context = {};
+	} else {
+		this.context = {
+			freq: 440,
+			amp: 1,
+		};
+	}
 	this.debug = false;
 	if (score) this.push(score);
+}
+
+Q.prototype.get = function(name) {
+	var q = this;
+	var val = q.context[name];
+	while (val == undefined && q.parentQ) {
+		q = q.parentQ;
+		val = q.context[name];
+	}
+	return val;
 }
 
 Q.prototype.push = function(v) {
@@ -588,9 +602,41 @@ Q.prototype.step = function() {
 			//console.log(op);
 			
 			// special cases:
-			if (op.substring(0, 5) == "@set-") {
+			if (op.substring(0, 5) == "@let-") {
+				// let is always local:
 				var name = op.substring(5);
 				this.context[name] = this.stack.pop();
+				return;
+				
+			} else if (op.substring(0, 5) == "@set-") {
+				var name = op.substring(5);
+				var value = this.stack.pop();
+				// look up the hierarchy to find the context that has this var
+				// if not found, use the uppermost
+				// easy route: if we are the uppermost, just set directly
+				if (!this.parentQ) {
+					this.context[name] = value;
+					return;
+				}
+				
+				// else we are child, so the @set might be directed here or upper:
+				var q = this;
+				var ctx;
+				while (q) {
+					ctx = q.context;
+					if (q.context[name] != undefined) {
+					 	break;
+					}
+					// keep moving up:
+					q = q.parentQ
+				}
+				
+				ctx[name] = value;
+				return;
+				
+			} else if (op.substring(0, 5) == "@get-") {
+				var name = op.substring(5);
+				this.stack.push( this.get(name) );
 				return;
 			}
 			
@@ -696,15 +742,13 @@ Q.prototype.step = function() {
 				// find parent PQ:
 				var seq = sequencers[this.pq];
 				if (seq) {
-					////
-					seq.fork(patt, this.t);
-					
+					seq.fork(patt, this.t, this);
 				} else {
 					console.error("can't fork without a scheduler, couldn't find scheduler", this.pq);
 				}
 				break;
 				
-			case "@fork-loop": 
+			case "@loop": 
 				// find the score:
 				var patt = this.todo.pop();
 				// argument *must* be a pattern
@@ -712,11 +756,18 @@ Q.prototype.step = function() {
 					console.error("loop body must be a pattern (an array)");
 					break;
 				}
-				this.todo.push(["@fork", ["@loop", patt]]);
+				//this.todo.push(["@fork", ["@loop", patt]]);
+				// find parent PQ:
+				var seq = sequencers[this.pq];
+				if (seq) {
+					seq.fork(["@forever", patt], this.t, this);
+				} else {
+					console.error("can't fork without a scheduler, couldn't find scheduler", this.pq);
+				}
 			
 				break;
 		
-			case "@loop":
+			case "@forever":
 				// infinite loop
 				var patt = this.todo[this.todo.length-1];
 				// argument *must* be a pattern
@@ -873,6 +924,7 @@ Q.prototype.step = function() {
 				}
 				break;
 		
+			case "@":
 			case "@execute":
 				var instr = this.stack.pop();
 				if (typeof instr != "string") {
@@ -1024,11 +1076,14 @@ Q.prototype.step = function() {
 				break;
 			
 			case "@pluck":
-				if (this.context.freq <= 0) break;
+				var amp = this.get("amp");
+				var freq = this.get("freq");
+				
+				if (freq <= 0) break;
 				// this is not in any way accurate, just a hack to make @set-dur do something semi-meaningful
-				strings.damping = 1 - (-6 / Math.log(this.context.dur * this.context.freq / sr));
+				strings.damping = 1 - (-6 / Math.log(freq / sr));
 				// strings by default seem too quiet:
-				strings.note(this.context.freq, this.context.amp * this.context.amp * 2);
+				strings.note(freq, amp * amp * 2);
 				break;
 			
 			// [amp, freq, "@pluck"]
@@ -1038,14 +1093,11 @@ Q.prototype.step = function() {
 				
 				if (freq <= 0) break;
 				// this is not in any way accurate, just a hack to make @set-dur do something semi-meaningful
-				strings.damping = 1 - (-6 / Math.log(this.context.dur * freq / sr));
+				strings.damping = 1 - (-6 / Math.log(freq / sr));
 				// strings by default seem too quiet:
 				strings.note(freq, amp * amp * 2);
 				break;
 				
-			case "@freq": this.stack.push(this.context.freq); break;
-			case "@amp": this.stack.push(this.context.amp); break;
-			case "@dur": this.stack.push(this.context.dur); break;
 			case "@time": this.stack.push(this.t); break;
 			case "@rate": this.stack.push(this.rate); break;
 				
@@ -1071,15 +1123,15 @@ Q.prototype.step = function() {
 				break;
 				
 			case "@kick": 
-				kick.amp = 0.5 * this.context.amp; // pitch, decay, tone, amp
+				kick.amp = 0.5 * this.get("amp"); // pitch, decay, tone, amp
 				kick.note(); 
 				break;
 			case "@snare": 
-				snare.amp = 0.25 * this.context.amp; // cutoff:1000, decay:11025, tune:0, snappy:.5, amp:1
+				snare.amp = 0.25 * this.get("amp"); // cutoff:1000, decay:11025, tune:0, snappy:.5, amp:1
 				snare.note();
 				break;
 			case "@hat": 
-				hat.amp = this.context.amp; 
+				hat.amp = this.get("amp"); 
 				hat.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
 				break;
 				

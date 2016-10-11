@@ -42,6 +42,8 @@ table { width:100%; }
 
 **Click on any of the code samples below to hear them!**
 
+## Sounds
+
 The VM comes with a small number of instruments to get things going. Here's a plucked string instrument. There are two ways to trigger it. You can use @pluck-note to set the frequency and amplitude for each note like this:
 
 <pre><code onclick="seq.play_element_text(this)">[440, 1, "@pluck-note"]</code></pre>
@@ -74,7 +76,7 @@ There are also some percussion sounds, which either grab amplitude from the cont
 	8, "@repeat", ["@hat", 0.125, "@wait"]
 ]]</code></pre>
 
----
+## Repetition and parallelism
 
 A list with several events normally happens at the same time:
 
@@ -111,34 +113,28 @@ Here's how to do something forever:
 
 <button class="button-primary" onclick="seq.clear()">Stop</button>
 
-However, nothing after the @looped list will ever be run:
+Note that @loop will run the pattern that follows it *in parallel*, which means that you can keep on triggering more things after it. So it's easy to set up a bunch of parallel processes:
 
 <pre><code onclick="seq.play_element_text(this)">[
-	"@loop", [ "@pluck", 0.25, "@wait" ],
-	"@loop", [[220, "@set-freq"], "@pluck", 1, "@wait"]
+	"@loop", [ 0.5, "@kick-note", 2, "@wait" ],
+	"@loop", [ 550, 0.5, "@pluck-note", 0.75, "@wait" ],
+	"@loop", [ 330, 0.4, "@pluck-note", 0.25, "@wait" ],
+	"@loop", [ 110, 1, "@pluck-note", 16, "@wait" ]
 ]</code></pre>
 
 <button class="button-primary" onclick="seq.clear()">Stop</button>
 
-To run a loop in parallel, use @fork-loop []:
-
-<pre><code onclick="seq.play_element_text(this)">[
-	"@fork-loop", [ "@pluck", 0.25, "@wait" ],
-	"@fork-loop", [[220, "@set-freq"], "@pluck", 1, "@wait"]
-]</code></pre>
-
-<button class="button-primary" onclick="seq.clear()">Stop</button>
 
 And to run something in parallel without looping it, just use @fork []:
 
 <pre><code onclick="seq.play_element_text(this)">[
 	"@loop", [ 
-		"@pluck", 
+		"@kick", 
 		"@fork", [
 			0.25, "@wait", 
-			[550, "@set-freq"], "@pluck",
+			550, 1, "@pluck-note",
 			0.33, "@wait", 
-			[660, "@set-freq"], "@pluck"
+			660, 1, "@pluck-note"
 		],
 		1, "@wait"
 	]
@@ -146,17 +142,18 @@ And to run something in parallel without looping it, just use @fork []:
 
 <button class="button-primary" onclick="seq.clear()">Stop</button>
 
----
+## Expressions
 
 Anywhere that a number would go, you can insert an expression. Here are some fun expressions.
 
-Here's picking a value at random from a list, instead of putting the @set-freq and @set-amp values as numbers:
+Here's picking a value at random from a list, instead of giving the freq and amp values as numbers:
+
 
 <pre><code onclick="seq.play_element_text(this)">[
 	"@loop", [ 
-		["@pick", [330, 440, 550, 660]], "@set-freq",
-		["@pick", [1, 0.7, 0.4]], "@set-amp",
-		"@pluck",
+		["@pick", [330, 440, 550, 660]], 
+		["@pick", [1, 0.7, 0.4]],
+		"@pluck-note",
 		0.25, "@wait"
 	]
 ]</code></pre>
@@ -167,30 +164,49 @@ Here's alternating between a set of values in a list, one at a time:
 
 <pre><code onclick="seq.play_element_text(this)">[
 	"@loop", [ 
-		["@alt", [330, 440, 550, 660]], "@set-freq",
-		["@alt", [1, 0.7, 0.4]], "@set-amp",
-		"@pluck",
+		["@alt", [330, 440, 550, 660]],
+		["@alt", [1, 0.7, 0.4]],
+		"@pluck-note",
 		0.25, "@wait"
 	]
 ]</code></pre>
 
 <button class="button-primary" onclick="seq.clear()">Stop</button>
 
-Here's way to set the probability of something happening. Note that two lists have to be given after the "@chance"; either the first is run (if the chance happens), else the other one will be run. If you don't care about the 'else' case, just put an empty list: [].
+Here's way to set the probability of something happening. Note that two lists have to be given after the "@chance"; either the first is run (if the chance happens), else the other one will be run. 
 
 <pre><code onclick="seq.play_element_text(this)">[
-	"@loop", [ 
-		0.1, 
-		"@chance",
-		["@kick", 0.5, "@wait"],
-		["@hat", 0.125, "@wait"]
+	"@loop", [
+		"@fork", [ 
+			0.1, 
+			"@chance",
+			["@snare"],
+			["@kick"]
+		],
+		"@hat", 0.25, "@wait"
 	]
 ]</code></pre>
 
 <button class="button-primary" onclick="seq.clear()">Stop</button>
 
 
-Another way of getting some random is to use the @rand (which generates a number between 0 and 1), @srand (which generates a number between -1 and 1), and n,@randi (which generates a number between 0 and n-1):
+If you don't care about the 'else' case, just put an empty list ```[]``` or ```null```. But you must put something, or else the virtual machine will get corrupted, and who knows what might happen.
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [
+		"@fork", [ 
+			0.1, 
+			"@chance",
+			["@snare"],
+			[]
+		],
+		"@hat", 0.25, "@wait"
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+Another way of getting some randomness is to use the @rand (which generates a number between 0 and 1), @srand (which generates a number between -1 and 1), and n,@randi (which generates a number between 0 and n-1):
 
 <pre><code onclick="seq.play_element_text(this)">[
 	"@loop", [ 
@@ -227,6 +243,67 @@ There are several basic math functions that can be used to map numbers into usef
 	]
 ]</code></pre>
 
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+## Get, set, and let
+
+The @set-freq etc. are really just examples of creating named values ("variables") that can be re-used again later. Actually you can use @set-*anything* to create whatever variables you like, and use @get-*anything* to retrieve them. Mainly this is useful when you want to re-use something a few times:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [ 
+		[[[4, "@randi"], 2, "@+"], 110, "@*"], "@set-f",
+		"@get-f", 0.6, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	]
+]</code></pre>
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+By default @set-*anything* will apply globally, so you can modulate a parameter from one loop while using it in another:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [
+		[[[4, "@randi"], 2, "@+"], 110, "@*"], "@set-f",
+		1, "@wait"
+	],
+	"@loop", [ 
+		"@get-f", 0.6, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	]
+]</code></pre>
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+If globalism isn't what you care for, you can make a name "local" to a particular loop by using @let-*anything*. Once you have @let- a variable in a particular @loop (or @fork) pattern, it will remain local to that pattern. Generally, use @let if you want some value that is only used within a pattern, and @set if you want something global. 
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [
+		[[[4, "@randi"], 1, "@+"], 110, "@mul"], "@let-f",
+		"@get-f", 0.6, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	],
+	"@loop", [
+		[[[4, "@randi"], 5, "@+"], 110, "@mul"], "@let-f",
+		"@get-f", 1, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	]
+]</code></pre>
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+One use for this is to repeatedly modify a value, such as for a counter, or a decay:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", [
+		1, "@let-a",
+		8, "@repeat", [
+			"@get-a", "@snare-note",
+			0.25, "@wait",
+			["@get-a", 0.6, "@*"], "@set-a"
+		]
+	]
+]</code></pre>
 <button class="button-primary" onclick="seq.clear()">Stop</button>
 
 
