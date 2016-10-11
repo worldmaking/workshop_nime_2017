@@ -117,9 +117,10 @@ Note that @loop will run the pattern that follows it *in parallel*, which means 
 
 <pre><code onclick="seq.play_element_text(this)">[
 	"@loop", [ 0.5, "@kick-note", 2, "@wait" ],
-	"@loop", [ 550, 0.5, "@pluck-note", 0.75, "@wait" ],
-	"@loop", [ 330, 0.4, "@pluck-note", 0.25, "@wait" ],
-	"@loop", [ 110, 1, "@pluck-note", 16, "@wait" ]
+	"@loop", [ 0.3, "@hat-note", 0.4, "@wait" ],
+	"@loop", [ 550, 0.5, "@pluck-note", 0.6, "@wait" ],
+	"@loop", [ 330, 0.4, "@pluck-note", 0.2, "@wait" ],
+	"@loop", [ 110, 1, "@pluck-note", 12, "@wait" ]
 ]</code></pre>
 
 <button class="button-primary" onclick="seq.clear()">Stop</button>
@@ -141,6 +142,19 @@ And to run something in parallel without looping it, just use @fork []:
 ]</code></pre>
 
 <button class="button-primary" onclick="seq.clear()">Stop</button>
+
+
+This is also handy for setting up loops with different start times:
+
+<pre><code onclick="seq.play_element_text(this)">[
+	"@loop", ["@kick", 1, "@wait"],
+	"@fork", [0.5, "@wait", 
+		"@loop", ["@hat", 1, "@wait"]
+	]
+]</code></pre>
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
 
 ## Expressions
 
@@ -304,6 +318,17 @@ One use for this is to repeatedly modify a value, such as for a counter, or a de
 		]
 	]
 ]</code></pre>
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+The only thing special about @set-freq is that the name "freq" is used by @pluck. That is, @pluck is equivalent to: ```["@get-freq", "@get-amp", "@pluck-note"]```. Similarly for @set-amp etc.
+
+---
+
+## Test area
+
+Type any pattern into the text box below and click to run it.  
+
+<textarea class="CodeMirror" onclick="seq.play_element_value(this)">["@pluck"]</textarea>
 <button class="button-primary" onclick="seq.clear()">Stop</button>
 
 
