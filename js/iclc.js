@@ -578,11 +578,11 @@ PQ.prototype.at = function() {
 	}
 }
 
-var runaway_limit = 1000;
+var runaway_limit = 10000;
 
 // how to play the pq in a sample callback:
 PQ.prototype.resume = function(t) {
-	runaway_limit = 1000; // prevent infinite loops
+	runaway_limit = 10000; // prevent infinite loops
 	while (!this.empty() && t >= this.at() && --runaway_limit > 0) {
 		// resume a queue:
 		//console.log("PQ.tick", this.t, this.at());
