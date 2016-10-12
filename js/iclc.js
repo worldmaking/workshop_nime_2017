@@ -221,7 +221,6 @@ var host = querystring.host || 'localhost',
     port = querystring.port || '8080';
 
 function ws_connect() {
-<<<<<<< HEAD
 
   if ('WebSocket' in window) {
     var address = "ws://" + host + ":" + port + "/";
