@@ -552,11 +552,22 @@ This workshop is an example of [Language-oriented programming](https://en.wikipe
 </script>
 
 <div class="container">
+
 	<div class="row" style="margin-top: 25%">
 		<div class="full column" id="main_body">
-		
 		</div>
 	</div>
+
+  <div class="row"> 
+		<div class="full column" id="saveAndLoad">
+      <label style="display:inline">LOAD</label>
+      <select id="loadMenu">
+        <option>default</option>
+      </select>  
+	    <button id="saveBtn" class="button-primary" style="margin-left:3em">save</button>
+		</div>
+	</div>
+
 	<div class="row">
 		<div class="one-half column">
 			<h4>Grammar:</h4>
@@ -564,21 +575,21 @@ This workshop is an example of [Language-oriented programming](https://en.wikipe
       </textarea>
 			<div id="peg_msg"></div>
 		</div>
+
 		<div class="one-half column">
 			<h4>Input:</h4>
 
-<textarea id="ed">
-
-</textarea>
+      <textarea id="ed"></textarea>
 
 			<div id="ed_msg"></div>
-			<hr/>
-			<button class="button-primary" id="ed_start">Start</button>
-			<button class="button-primary" id="ed_stop">Stop</button>
-			<h4>Output:</h4>
-			<div id="output"></div>
-			<hr/>
+        <hr/>
+        <button class="button-primary" id="ed_start">Start</button>
+        <button class="button-primary" id="ed_stop">Stop</button>
+        <h4>Output:</h4>
+        <div id="output"></div>
+        <hr/>
     	</div>
+
 	</div>
 </div>
 
@@ -728,7 +739,7 @@ function parse() {
 }
 
 
-WorkshopStorage.init()
+WorkshopStorage.init( peged, ed, peg_text, ed_text )
 
 
 if( WorkshopStorage.values.lastSavedState.grammar !== null ) {
