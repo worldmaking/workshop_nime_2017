@@ -394,7 +394,36 @@ sequencers = {};
 // dictionary of actively spawned loops.
 spawns = {};
 
-// clear all sequencers (e.g. STOP button)
+// this is where the externally triggered events are buffered to synchronize them to beats
+var cq = {
+	t: 0,
+	beat: -1,
+	cmds: [], // these get fired at the next beat
+};
+
+
+cq.tick = function(t) {
+	if (!external.linked) this.resume(this.t + bpm * bpm2bpa);
+}
+
+cq.resume = function(t) {
+	var t0 = Math.floor(t);
+	if (t0 > this.beat) {
+		this.beat = t0;
+		
+		// flush commands:
+		while (this.cmds.length) {
+			var cmd = this.cmds.shift();
+			cmd();
+		}
+	}
+	this.t = t;
+	return this;
+}
+
+Gibberish.sequencers.push(cq);
+	
+// clear all sequencers (e.g. STOP button) -- immediate
 seq.clear = function() {
 	for (k in sequencers) {
 		sequencers[k].disconnect();
@@ -430,14 +459,18 @@ seq.play_element_text = function(element) {
 // if name didn't exist, create a new one.
 // if name already exists, replace score. If no score, terminate the sequencer.
 seq.define = function(name, score) {
-	if (!typeof name == "string") {
-		console.log("error: missing sequence name"); return;
-	}
-	if (!Array.isArray(score)) {
-		console.log("error: missing score data"); return;
-	}
-	// create it:
-	return new PQ(score, name).connect();
+	
+	// sync this:
+	cq.cmds.push(function() {
+		if (!typeof name == "string") {
+			console.log("error: missing sequence name"); return;
+		}
+		if (!Array.isArray(score)) {
+			console.log("error: missing score data"); return;
+		}
+		// create it:
+		return new PQ(score, name).connect();
+	});
 }
 
 // terminate a named sequencer.
@@ -451,9 +484,11 @@ seq.stop = function(name) {
 	}
 }
 
-seq.external_resume = function(t) {
+seq.external_resume = function() {
+	var t1 = external.t + bpm * bpm2bpa;
+	cq.resume(t1);
 	for (k in sequencers) {
-		sequencers[k].resume(external.t + bpm * bpm2bpa);
+		sequencers[k].resume(t1);
 	} 
 }
 
@@ -569,7 +604,7 @@ function Q(score, t, pq, parentQ) {
 	this.t = t || 0;
 	this.pq = pq;
 	this.rate = 1;
-	this.todo = [];
+	this.todo = []; 
 	this.stack = [];
 	this.parentQ = parentQ;
 	if (parentQ) {
@@ -784,7 +819,7 @@ Q.prototype.step = function() {
 					var dst = loop[1];
 					dst.length = 0;
 					dst.push.apply(dst, patt);
-					console.log("replace", name, loop);
+					//console.log("replace", name, loop);
 				}
 				
 				// do it:
