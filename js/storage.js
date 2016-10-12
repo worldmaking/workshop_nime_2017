@@ -4,6 +4,7 @@ var WORKSHOP = 'iclc_workshop_2016'
 
 var WorkshopStorage = {
   values: null,
+  initialized: false,
 
   init: function() {
     Storage.prototype.setObject = function( key, value ) { 
@@ -19,16 +20,20 @@ var WorkshopStorage = {
 
     if( this.values === null ) {
       this.values = {
-        lastSavedtate: null,
-        userFiles: {}
+        lastSavedState: {
+          grammar:null,
+          test:null
+        }
       }
 
-      this.save()
-    }   
+      //this.save()
+    }
+
+    this.initialized = true
   },
 
   save : function() {
-    localStorage.setObject( WORKSHOP, this.values );
+    localStorage.setObject( WORKSHOP, this.values )
   },
 
   getLocalStorage: function() {
@@ -44,16 +49,20 @@ var WorkshopStorage = {
     this.save()
   },
 
-  /* this file is saved after every keystroke(?). It represents the
+  /* this file is saved after every user submitted code run. It represents the
    * current state of the editors, and is automatically restored upon
    * refresh.
    */
 
-  saveDefaultFile: function() {
-
+  saveState: function( grammar, test ) {
+    if( this.initialized === true ) {
+      this.values.lastSavedState.grammar = grammar
+      this.values.lastSavedState.test = test
+      this.save()
+    }
   },
 }
 
 window.WorkshopStorage = WorkshopStorage
 
-})()
+}()
