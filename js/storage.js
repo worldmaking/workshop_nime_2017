@@ -49,7 +49,7 @@ var WorkshopStorage = {
     var userFileNames = Object.keys( this.values.userFiles )
     for( var i = 0; i < userFileNames.length; i++ ){
       var opt = document.createElement('option')
-      opt.innerText = userFileNames[ optionNumber ]
+      opt.innerText = userFileNames[ i ]
       loadMenu.appendChild( opt )
     }
 
