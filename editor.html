@@ -1,0 +1,226 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>ICLC 2016 Workshop: Design a Mini-Language</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/hoodie.css">
+<link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="css/normalize.css">
+<link rel="stylesheet" href="css/skeleton.css">
+<link rel="stylesheet" href="css/codemirror.css">
+<link rel="stylesheet" href="css/github.min.css">
+
+<script src="js/jquery.min.js"></script>
+
+<script src="js/marked.js"></script>
+<script src="js/highlight.min.js"></script>
+<script src="js/hljs/javascript.min.js"></script>
+
+<script src="js/peg.min.js"></script>
+<script src="js/pegjs.pegjs.js"></script>
+
+<script src="js/codemirror.min.js"></script>
+<script src="js/mode/pegjs.min.js"></script>
+
+<script src="js/big.min.js"></script>
+<script src="js/gibberish.min.js"></script>
+<script src="js/iclc.js"></script>
+
+<!-- Load the dynamic version of hoodie.js that includes all the plugin code-->
+<script src="/_api/_files/hoodie.js"></script>
+
+<script src="assets/vendor/hoodie.accountbar.bootstrap.js"></script>
+<script src="assets/vendor/bootstrap.modalform.js"></script>
+
+<style>
+/* see http://getskeleton.com/ */
+html { font-size: 50%; } 
+table { width:100%; }
+</style>
+</head>
+<body>
+
+<script type="bogus" id="sourcetext">
+
+# The editor
+
+On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the currently selected text.
+
+
+
+
+
+</script>
+
+<div class="container">
+	<div class="row" style="margin-top: 25%">
+		<div class="full column" id="main_body">
+		
+		</div>
+	</div>
+	<div class="row">
+		<div class="one-half column">
+			<h4>Grammar:</h4>
+			<textarea id="peged"> 
+sentence 
+= _ words:word+ _ { 
+	return words; 
+}
+
+word 
+= text:(list / number / $letter+) _ { 
+	return text; 
+}
+
+list
+= "(" _ body:sentence _ ")" {
+	return body;
+}
+
+_ 
+= [ \n\t]* // any spaces, tabs or newlines
+
+letter 
+= [a-zA-Z@+*/%?-] // any letter, or hyphen, or @
+
+number 
+= text:$("-"? (([0-9]+ ("." [0-9]*)?) / ("." [0-9]+))) { 
+	return +text;  // converts text to a Javascript number
+}
+			</textarea>
+			<div id="peg_msg"></div>
+		</div>
+		<div class="one-half column">
+			<h4>Input:</h4>
+
+<textarea id="ed">
+@loop(
+	@iter (0.01 0.2 0.01) @hat-note
+	@iter (1 3) 8 @div @wait
+)
+@loop (
+	(@iter (14 15 16 17 18) 44 @mul) @set-freq 
+    0.1 @set-amp
+	@pluck
+	@pick (5 7) 32 @div @wait 
+)
+@loop (
+	(@iter (16 6 15 5 10 4 12) 44 @mul) @set-freq 
+    1 @pick (2 3 5 6 5 6 5) @div @set-amp
+	@pluck
+	@iter (5 1 9 1) 32 @div @wait 
+)
+</textarea>
+
+			<div id="ed_msg"></div>
+			<hr/>
+			<button class="button-primary" id="ed_start">Start</button>
+			<button class="button-primary" id="ed_stop">Stop</button>
+			<h4>Output:</h4>
+			<div id="output"></div>
+			<hr/>
+    	</div>
+	</div>
+</div>
+
+
+
+<script>
+
+var body = document.getElementById('sourcetext').innerText;
+document.getElementById('main_body').innerHTML = marked(body);
+
+////////////////////////////////////////////////////////////////////////////////
+
+var peged = CodeMirror.fromTextArea(document.getElementById("peged"), {mode: "pegjs"});
+var peg_msg_div = document.getElementById("peg_msg");
+
+var ed;
+
+var ed_trigger = function(ed) {
+	// if selection is empty, select entire line or containing block?
+	
+	if (parser === undefined) make_parser(); 
+	
+	console.log("trigger", ed.getSelection());
+    execute(ed.getSelection());
+}
+
+// see http://codemirror.net/3/doc/manual.html#keymaps
+var ed_options = {
+  extraKeys: {
+    "Ctrl-Enter": ed_trigger,
+    "Cmd-Enter": ed_trigger,
+  }
+};
+
+ed = CodeMirror.fromTextArea(document.getElementById("ed"), ed_options);
+var ed_msg_div = document.getElementById("ed_msg");
+var out_div = document.getElementById("output");
+
+var start_button = document.getElementById("ed_start");
+var stop_button = document.getElementById("ed_stop");
+
+start_button.onclick = function() { parse(); }
+stop_button.onclick = function() { seq.clear(); }
+
+// events: http://codemirror.net/3/doc/manual.html#events
+// e.g. use the "change" event to respond to code without needing to trigger it. e.g. in-place formatting changes, but maybe also super-live-immediate mode! Other cursor/selection/gutter events. 
+// "renderLine" event to style-by-parser?
+peged.on("change", function(ed, change) {
+  parser = undefined;
+  parse();
+});
+
+ed.on("change", function(ed, change) {
+  parse();
+});
+
+// PEG:
+// http://pegjs.org/documentation
+
+var parser;
+
+function make_parser() {
+  peg_msg_div.innerText = "";
+  try {
+    // update our parser:
+    parser = PEG.buildParser(peged.getValue());
+  } catch(ex) {
+    //console.log(ex.message);
+    peg_msg_div.innerText = ex.message;
+  }
+}
+
+var tracer = {
+  trace: function(o) {
+    console.log("trace", o);
+  }
+};
+
+function execute(text) {
+	var res = parser.parse(text, { trace: tracer });
+    seq.define("default", res); 
+    out_div.innerText = JSON.stringify(res);
+}	
+
+function parse() {
+  ed_msg_div.innerText = "";
+  out_div.innerText = "";
+  try {
+    if (parser === undefined) make_parser(); 
+    execute(ed.getValue());
+  
+  } catch(ex) {
+    //console.log(ex.message);
+    ed_msg_div.innerText = ex.message;
+  }
+}
+
+parse();
+
+</script>
+
+</body>
+</html>

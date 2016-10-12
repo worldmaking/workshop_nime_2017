@@ -30,7 +30,10 @@
 /* see http://getskeleton.com/ */
 html { font-size: 50%; } 
 table { width:100%; }
-.input { min-height: 1em; width:50%; max-width: 50%; }
+.input { 
+	min-height: 1em; width:50%; max-width: 50%; 
+	font-family: monospace;
+}
 .result { 
 	float: right;  
 	width:45%; max-width: 45%; padding: 1%; 
@@ -47,11 +50,13 @@ table { width:100%; }
 
 <script type="bogus" id="sourcetext">
 
-# Tutorial
+# Parsing expression grammar tutorial
 
 <div id="toc"></div>
 
 **In any of the examples below, you can edit the input text and see the output immediately.**
+
+---
 
 ## The most common grammar concepts
 
@@ -111,7 +116,9 @@ start = "hello" / "bye"
 
 <textarea class="input">bye</textarea>
 
-Problem is, this can only recognize the words we defined in the grammar. What if we wanted to recognize any old word (even nonsense and imaginary ones)? Well, remembering that we can split a word into a sequence of letters, let's simplify the problem to recognizing any letter. We could start with something like this:
+*Choice is ordered*, which is important. If the first of a set of alternatives matches, the others will be ignored. It can be important therefore to list your alternatives with the most specific/complex first, the most general/simple last. As a simple example, ```"a" / "aa"``` will never select the second option, as the first one would have been valid. 
+
+Back to our grammar above, the problem is, this can only recognize the words we defined in the grammar. What if we wanted to recognize any old word (even nonsense and imaginary ones)? Well, remembering that we can split a word into a sequence of letters, let's simplify the problem to recognizing any letter. We could start with something like this:
 
 ```peg
 letter = "a" / "b" / "c" / "d" / "e"
@@ -148,6 +155,12 @@ letter = [a-zA-Z@]
 ```
 
 <textarea class="input">A</textarea>
+
+By the way, there's also an inverse set, indicated via ```^```:
+
+```peg
+nonletter = [^a-zA-Z]
+```
 
 ### One or more
 
@@ -249,7 +262,7 @@ Actually we don't really care about the spaces, we only want to keep the words. 
 
 ### Give me specific parts
 
-Keeping certain parts means throwing others away. It implies *modifying what a rule returns* via an action, but to do this we also need to identify what parts of a pattern we are interested in keeping (also known as captures). We do this by giving them names (also known as labels) marked by the ```:``` colon character. For example, we can label the important part of our ```word``` pattern with the name "text" like this:
+Keeping certain parts means throwing others away. It implies *modifying what a rule returns* via an action, but to do this we also need to identify what parts of a pattern we are interested in keeping (also known as captures). And in fact, quite often a lot of the syntax is irrelevant, so frequently our first stage in parsing is throwing away what we don't need and cleaning up what we have. We do this by giving them names (also known as labels) marked by the ```:``` colon character. For example, we can label the important part of our ```word``` pattern with the name "text" like this:
 
 ```peg
 word = text:$letter+ space*
@@ -297,7 +310,9 @@ Notice how the paragraph and sentence structure is now encoded in the list struc
 
 ### Do some transformations on them
 
-Since we're looking at the actions of a rule, it's worth mentioning that you can put pretty much any javascript in there:
+In most languages, correct syntax doesn't guarantee correct semantics. **Moreover, colourless green ideas sleep furiously.** We might be able to *validate* the semantics from within the parser, but sometimes we need a secondary (or more) passes over the result. 
+
+We can do quite a lot of work directly in the grammar by defining more complex actions, which will be performed on the result of the match. This is where we can do extra cleaning up or transformations. Actions are just bodies of JavaScript. You can put pretty much any javascript in there:
 
 ```peg
 paragraph = sentence+
@@ -320,6 +335,60 @@ space = " "
 
 <textarea class="input">I am calm. very calm.</textarea>
 
+### Except, unless, and anything
+
+Sometimes you have a pattern, but there are some exceptions you want to exclude from it. For example, we want to match a variable name, except if it a reserved keyword. In this case, the ```!``` **except** concept works for us:
+
+```peg
+// a var name is a word that is not a keyword
+varname = !keyword w:word { return w; }
+
+// these are not valid variable names:
+keyword = "evil" / "nasty"
+
+word = $letter+
+letter = [a-zA-Z@]
+```
+
+<textarea class="input">hello</textarea>
+
+Sometimes you want to capture *any character at all* so long as it isn't a parenthesis. The *any character at all* is represented by the humble dot ```.```:
+
+```peg
+// this will match absolutely any input
+anything = .*
+```
+
+<textarea class="input">whatever you want.</textarea>
+
+Plugging *anything* and *except* together turns out to be very handy for detecting nested structures, like quotes, brackets, etc: 
+
+```peg
+// every item is either a list or not-a-list
+item = list / nonlist
+
+// a list is several items wrapped in parentheses:
+list = "(" a:item* ")" { return a; }
+
+// a non-list is any run of characters except for parentheses:
+nonlist = $(!"(" !")" .)+
+```
+
+<textarea class="input">(x(xx)x(x(x))())</textarea>
+
+The terms can be flipped around to make an **unless-followed-by** concept:
+
+```peg
+// a statement is a word unless followed by a question mark:
+stat = $(word !"?")
+
+word = [a-z]+
+```
+
+<textarea class="input">what</textarea>
+
+These rules give some fun opportunities to make a grammar more context sensitive.
+
 ---
 
 ## Recap
@@ -334,14 +403,82 @@ Zero or more A's (returns an array)				| ```A*```
 One or more A's (returns an array)				| ```A+```
 Any one of these characters						| ```[abcdefgABCDEFG]```
  (or simply)									| ```[a-gA-G]```
+Any integer										| ```[0-9]```
+Any non-letter									| ```[^a-zA-Z]```
 Capture the raw text of the pattern	A			| ```$A```
 Capture A as ```a``` and B as ```b``` for the action | ```a:A b:B```
+Any character at all							| ```.```
+A so long as it is not also a B					| ```!B A```
+A so long as it *is* also a B					| ```&B A```
+A unless followed by B							| ```A !B```
 
 That's nearly all the important concepts. There's a handful of other trickier ones but we'll get to them if we need to. But really, nearly everything can be done with the above handful.
 
 ---
 
-## Example - musical notes
+## Examples 
+
+
+### Space is time
+
+```peg
+start = (loop / beat)+
+
+loop = "[" b:beat+ "]" { return ["@loop", b]; }
+
+beat = rest / hat / snare / kick / conga1 / conga2 / tom
+
+// spaces create rests:
+rest = " " { return [0.25, "@wait"]; }
+
+// everything else is immediate:
+hat = "-" { return ["@hat"]; }
+snare = "o" { return ["@snare"]; }
+kick = "x" { return ["@kick"]; }
+conga1 = "n" { return [220, 0.5, "@conga-note"]; }
+conga2 = "u" { return [110, 1, "@conga-note"]; }
+tom = "^" { return [110, 1, "@tom-note"]; }
+```
+
+<textarea class="input">[x  o  ][-  - ][u   ][^- n     ]</textarea>
+
+Here's a Tidal-like concept in which loops have the same length, and the durations inside depend on the number of items in them:
+
+```peg
+start = (loop / item)+
+
+loop = "[" loop:item+ "]" _ {
+	// get duration from loop length:
+	var dur = 1/loop.length; 
+	// interleave loop with rests:
+	var result = [];
+	for (var item of loop) {
+		result.push(item);
+		result.push([dur, "@wait"]);
+	}
+	return ["@loop", result];
+}
+
+item = rest / hat / snare / kick / conga1 / conga2 / tom
+
+rest = " " { return []; }
+hat = "-" { return ["@hat"]; }
+snare = "o" { return ["@snare"]; }
+kick = "x" { return ["@kick"]; }
+conga1 = "n" { return [220, 0.4, "@conga-note"]; }
+conga2 = "u" { return [165, 0.4, "@conga-note"]; }
+tom = "^" { return [110, 0.6, "@tom-note"]; }
+
+// empty space:
+_ = [ \t\n\r]*
+```
+
+<textarea class="input">
+[x   --o    - ]
+[^  ^n u  u ]
+</textarea>
+
+### Musical notes
 
 This page can also make sound! Click on the input box below and it will trigger the text to be parsed; and the output in this case will generate a note at frequency 440Hz and amplitude value of 1:
 
@@ -383,9 +520,8 @@ note = "a" { return 69; } / "b" { return 71; } / "c" { return 60; }
 Alternatively, here's a more compact and flexible way:
 
 ```peg
-start = pitch:note { return [mtof(pitch), 1, "@pluck-note"]; }
-
-note = c:chroma { return c + 60; }
+start = freq:hz { return [freq, 1, "@pluck-note"]; }
+hz = c:chroma { return mtof(c + 60); }
 
 chroma = c:[a-gA-G] { 
     // return MIDI note offset from C:
@@ -403,45 +539,11 @@ chroma = c:[a-gA-G] {
 
 <textarea class="input">a</textarea>
 
-We could add on the octave, as "a0", "c1", "b4" etc.:
+We could add on the octave, as "a0", "c1", "b4" etc., and even accidentals:
 
 ```peg
-start = pitch:note { return [mtof(pitch), 1, "@pluck-note"]; }
-
-note = c:chroma o:octave { return c + o; }
-
-chroma = c:[a-gA-G] { 
-    // return MIDI note offset from C:
-    switch(c.toUpperCase()) {
-    case "C": return 0; 
-    case "D": return 2; 
-    case "E": return 4; 
-    case "F": return 5; 
-    case "G": return 7; 
-    case "A": return 9; 
-    case "B": return 11; 
-    }
-}
-
-octave = n:$("-"? [0-9]+)? { 
-	if (n) { 
-		// convert octave to MIDI note C:
-		return 12 + (+n) * 12; 
-	} else { 
-		// octave wasn't specified, default to C4:
-		return 60; 
-	}
-}
-```
-
-<textarea class="input">a4</textarea>
-
-How about some accidentals:
-
-```peg
-start = pitch:note { return [mtof(pitch), 1, "@pluck-note"]; }
-
-note = c:chroma a1:accidental a2:accidental o:octave { return c + a1 + a2 + o; }
+start = freq:hz { return [freq, 1, "@pluck-note"]; }
+hz = c:chroma a1:accidental a2:accidental o:octave { return mtof(c + a1 + a2 + o); }
 
 chroma = c:[a-gA-G] { 
     // return MIDI note offset from C:
@@ -477,7 +579,85 @@ octave = n:$("-"? [0-9]+)? {
 }
 ```
 
-<textarea class="input">C##4</textarea>
+<textarea class="input">C3</textarea>
+
+
+And now for chords:
+
+```peg
+arpeggio = c:absolute_chord {
+	return ["@loop", [
+		[["@iter", c], "@random", "@pluck-note"],
+		0.25, "@wait",
+	]];
+}
+
+absolute_chord = base:note chord:chord_extended {
+	var result = [];
+    for (var e of chord) {
+    	result.push(mtof(base + e));
+    }
+    return result;
+}
+
+chord_extended = chord:chord variants:chord_variant* {
+	var last = chord[2];
+    for (var v of variants) {
+    	chord.push(last + v);
+    }
+    return chord;
+}
+
+chord_variant 
+	= "7" { return 3; }
+	/ "#7" { return 4; }
+	/ "b9" { return 6; }
+	/ "9" { return 7; }
+
+chord
+	= "min" { return [0, 3, 7]; }
+	/ "maj" { return [0, 4, 7]; }
+	/ "dim" { return [0, 3, 6]; }
+	/ "sus" { return [0, 5, 7]; } 
+	/ "aug" { return [0, 4, 8]; }
+	
+note = c:chroma a1:accidental a2:accidental o:octave { return c + a1 + a2 + o; }
+
+chroma = c:[a-gA-G] { 
+    // return MIDI note offset from C:
+    switch(c.toUpperCase()) {
+    case "C": return 0; 
+    case "D": return 2; 
+    case "E": return 4; 
+    case "F": return 5; 
+    case "G": return 7; 
+    case "A": return 9; 
+    case "B": return 11; 
+    }
+}
+
+// sharps and flats
+accidental = a:[#b]? {
+    // return MIDI note offset:
+    switch(a) {
+    case "#": return +1;
+    case "b": return -1;
+    default: return 0;
+    }
+}
+
+octave = n:$("-"? [0-9]+)? { 
+    if (n) { 
+        // convert octave to MIDI note C:
+        return 12 + (+n) * 12; 
+    } else { 
+        // octave wasn't specified, default to C4:
+        return 60; 
+    }
+}
+```
+
+<textarea class="input">Dbdim#7</textarea>
 
 ---
 
@@ -565,14 +745,141 @@ ratio = a:$("-"? [0-9]+) "/" b:$("-"? [0-9]+) { return +a / +b; }
 
 Maybe want to add something special if b happens to be zero...
 
-----
+### This is the end
+
+To detect the end of the entire input string, we can assert that there is nothing after it:
 
 ```peg
-start = "hello" { return ["@pluck"]; }
+end_of_input = !.
 ```
 
-<textarea class="input">hello</textarea>
+To grab everything to the end of the input, just capture zero or more anythings (typically you want this as raw text):
 
+```peg
+rest_of_input = $.*
+```
+
+### LISP
+
+The Lisp programming language has one of the simplest grammars. Everything is a term, which could be a single word be a list of terms; lists are bounded by parentheses and their terms are separated by space characters, or can be empty. Four rules are enough to recognize this language and return its structure in nested arrays:
+
+```peg
+// an item can be followed by whitespace
+// which we ignore by using the action
+// the item itself could be a list or a word
+term "term" = body:(list / word) _ { return body; } 
+
+// a pattern is enclosed within parentheses
+// it could also be empty
+list "list" = "(" _ body:term* ")" { return body; }
+
+// a symbol must not contain parentheses nor whitespace
+// use the "$" to get the raw text
+word "word" = $[^() \t\n\r]+
+
+// white space is zero or more spaces or tabs (or newlines)
+_ "whitespace" = [ \t\n\r]*
+```
+
+<textarea class="input">(defun factorial (N)
+  (if (= N 1)
+      1
+    (* N (factorial (- N 1)))))
+</textarea>
+
+## Some common errors
+
+### First, getting better errors
+
+If you annotate a rule by putting a string after the rule name, then this string will be used in error reporting. 
+
+```peg
+myrule "myrule" = A B
+```
+
+This also lets the PEG.js parser know this is a likely location for errors (and it will suppress errors from any nested rules). Usually it's best to put these annotations on the lowest-level rules, so that errors become more localized. Definitely don't put them on your highest-level rules!
+
+### "Expected (something...) but end of input found"
+
+This means the grammar got to the end of the input without completing a rule. For example:
+
+```peg
+start = "hello"
+```
+
+<textarea class="input">hell</textarea>
+
+With grammars that have lots of rules it can be quite tricky to figure out where the problem is. Try changing the start rule and working up from smaller fragments to find out where it is breaking -- which rule isn't able to complete. And use the 'getting better errors' tip above to make the (something...) part of the error more helpful.
+
+#### "Expected end of input but (someting...) found"
+
+In this case, the grammar completely matched, but there were some extra text left over that couldn't be matched. The (something...) tells you what part of the input it gave up at. For example:
+
+```peg
+start = "hello"
+```
+
+<textarea class="input">hello!</textarea>
+
+One thing you can do is add an ```$.*``` to the end of the top-most rule, which will capture all the rest of the text to the end in a big string. That might help identify where it is going wrong.
+
+### "Infinite loop detected"
+
+It's really easy to make a grammar that can never terminate. Here's a failed attempt to match a string of one or more "a" characters:
+
+```peg
+// BAD!!!
+X = Y+
+Y = "a"*  
+```
+
+The problem here is that Y can match nothing (the empty string), since it can match zero or more of something, and X can match one or more of these Y's. That is, X can match one or more nothings. If you think about it, there are an infinite number of times you can match nothing. So X will keep on matching nothing until you run out of memory, and the parser will give up in a poof of ennui.
+
+All you need to do is make sure than under any array-like operation (i.e. any use of + or *), there is no expansion that can match an empty string (e.g. through the use of ? and *). 
+
+So the above grammar can be fixed simply by moving the zero-or-more up to the top:
+
+```peg
+X = Y*
+Y = "a"+ 
+```
+
+### "Left recursion detected"
+
+There's another common way to make a grammar that can't terminate. A really common example of this is handling math expressions. To match statements like "1", "1+2", "1+2+3" etc, it might be tempting to write this:
+
+```peg
+// BAD!!!
+Expression = Addition / Value
+Addition = Expression "+" Expression
+Value = [0-9]
+```
+
+The problem is that the Addition rule's first item is Expression, whose first item is Addition, and so on forever -- the parser will keep following this trail of links until it runs out of memory, and never finish its job. 
+
+An even simpler example:
+
+```peg
+StringOfAs = StringOfAs "a" / "a"
+```
+
+If you get the "Left recursion detected" error, look through each of your rules for their first (left-most) items, and make sure they can't resolve back to themselves. The math grammar above can be fixed by removing this feedback loop by changing the first item in the Addition rule as follows:
+
+```peg
+Expression = Addition / Value
+Addition = Value ("+" Expression)*
+Value = [0-9]
+```
+
+However note that the structure it returns will look different. We can use actions to reshuffle the parse tree into the format that we actually want.
+
+---
+
+### Nerdy corner
+
+Why Parsing Expression Grammar (PEG) rather than Context-Free Grammar (CFG)? Because the choice operator always selects the first match (in CFG this is ambiguous) -- with PEGs there is only one valid parse tree. Compared to Regular Expressions, PEGs have the ability to define recursive structures (and they're also a bit easier to read!)
+
+This workshop is an example of [Language-oriented programming](https://en.wikipedia.org/wiki/Language-oriented_programming) (LOP); a style of computer programming in which, rather than solving problems in general-purpose programming languages, the programmer creates one or more domain-specific languages for the problem first, and solves the problem in those languages. 
 
 
 </script>

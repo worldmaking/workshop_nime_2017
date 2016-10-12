@@ -18,6 +18,14 @@ mtof = function(pitch) {
 	return 440 * Math.pow(2, (+pitch - 69)/12);
 }
 
+uid = (function() {
+	var id = 0;
+	return function() {
+		id++;
+		return "uid"+id;
+	}
+})();
+
 function array_shuffle(a) {
     var j, x, i;
     for (i = a.length; i; i--) {
@@ -182,20 +190,10 @@ external = {
 kick = new Gibberish.Kick({ decay:.2 }).connect();
 snare = new Gibberish.Snare({ snappy: 1.5 }).connect();
 hat = new Gibberish.Hat({ amp: 1.5 }).connect();
-conga = new Gibberish.Conga({ amp:.5, freq:200 }).connect();
+conga = new Gibberish.Conga({ amp:.25, freq:400 }).connect();
+tom = new Gibberish.Tom({ amp:.25, freq:400 }).connect();
 strings = new Gibberish.PolyKarplusStrong({maxVoices: 32}).connect();
 
-var builtins = {
-	// sounds:
-	"kick": kick.note,
-	"snare": snare.note,
-	"hat": function(p) { 
-		hat.note(+p); 
-	},
-	"note": function(p, v) { 
-		strings.note(+p, +v); 
-	},
-}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Websocket
@@ -393,12 +391,16 @@ seq = {};
 // dictionary of active sequencers.
 sequencers = {};
 
+// dictionary of actively spawned loops.
+spawns = {};
+
 // clear all sequencers (e.g. STOP button)
 seq.clear = function() {
 	for (k in sequencers) {
 		sequencers[k].disconnect();
 		delete sequencers[k];
 	}
+	spawns = {};
 }
 
 // triggered by the onclick of an html element
@@ -406,7 +408,7 @@ seq.clear = function() {
 // e.g. <a href="#" onclick="seq.play_element_text(this)">["@pluck"]</a>
 seq.play_element_value = function(element) {
 	// play element's text:
-	seq.define("default", JSON.parse(element.value));
+	seq.define(uid(), JSON.parse(element.value));
 }
 
 // triggered by the onclick of an html element
@@ -414,7 +416,7 @@ seq.play_element_value = function(element) {
 // e.g. <a href="#" onclick="seq.play_element_text(this)">["@pluck"]</a>
 seq.play_element_text = function(element) {
 	// play element's text:
-	seq.define("default", JSON.parse(element.innerText));
+	seq.define(uid(), JSON.parse(element.innerText));
 	// stop the click from selecting the text:
 	if(document.selection && document.selection.empty) {
         document.selection.empty();
@@ -462,14 +464,18 @@ function PQ(score, name) {
 	this.t = external.t;
 	this.heap = []; // the list of active command queues (next to resume is at the top)
 	this.name = name || "default";
+	this.context = {
+		freq: 440,
+		amp: 1,
+	};
 	
-	if (score) { this.fork(score, this.t, null); }
+	if (score) { this.fork(score, this.t, this); }
 	
 	// replace?
-	var seq = sequencers[this.name];
-	if (seq !== undefined) {
+	var s = sequencers[this.name];
+	if (s !== undefined) {
 		// remove sequencer:
-		seq.disconnect();
+		s.disconnect();
 	}
 	sequencers[this.name] = this; // auto-connect()?
 	
@@ -614,7 +620,16 @@ Q.prototype.step = function() {
 			//console.log(op);
 			
 			// special cases:
-			if (op.substring(0, 5) == "@let-") {
+			
+			if (op.substring(0, 4) == "@ws-") {
+				var n = +op.substring(4);
+				var args = this.stack.splice(this.stack.length-n, n);
+				console.log("ws", args);
+				var msg = args.join(" ");
+				ws_send(this.t + " " + msg);
+				return;
+			
+			} else if (op.substring(0, 5) == "@let-") {
 				// let is always local:
 				var name = op.substring(5);
 				this.context[name] = this.stack.pop();
@@ -661,7 +676,15 @@ Q.prototype.step = function() {
 					this.stack[this.stack.length-1]
 				);
 				break;
-			
+				
+			case "@bpm":
+				// set bpm:
+				var t1 = this.stack.pop();
+				t1 = (t1 == undefined) ? 100 : Math.abs(+t1);
+				t1 = (t1 == t1) ? t1 : 100;
+				bpm = t1;
+				break;
+				
 			case "@wait": 
 				// TODO: verify stack top is a valid number...
 				// pop wait time off the stack:
@@ -729,7 +752,7 @@ Q.prototype.step = function() {
 				// find the name:
 				var name = this.stack.pop();
 				// find the score:
-				var patt = this.todo[this.todo.length-1];
+				var patt = this.todo.pop();
 				if (typeof name != "string" && typeof name != "number") {
 					console.error("spawn name must be a string or number");
 					break;
@@ -738,11 +761,52 @@ Q.prototype.step = function() {
 					console.error("spawn body must be a pattern (an array)");
 					break;
 				}
+				// find parent PQ:
+				var s = sequencers[this.pq];
+				if (s == undefined) {
+					console.error("can't spawn, can't find sequencer", this.pq);
+					break;
+				}	
+				
+				// does it already exist?
+				var loop = spawns[name];
+				if (loop == undefined) {
+					//console.log("create new", name);
+					// create it:
+					loop = ["@forever", patt];
+					spawns[name] = loop;
+					// fork it:
+					s.fork(loop, this.t, this);
+				} else {
+				
+					//console.log("replace", name, loop);
+					// nothing yet
+					var dst = loop[1];
+					dst.length = 0;
+					dst.push.apply(dst, patt);
+					console.log("replace", name, loop);
+				}
 				
 				// do it:
-				seq.define(name, patt);
+				//seq.define(name, ["@loop", patt]);
 				break;
 			
+			case "@stop":
+				// find the name:
+				var name = this.stack.pop();
+				// does it already exist?
+				var loop = spawns[name];
+				if (loop !== undefined) {
+				
+					console.log("stop", name);
+					// nothing yet
+					loop[1].length = 0;
+					loop.length = 0;
+					delete spawns[name];
+					//loop.push.apply(loop);
+				}
+				break;
+				
 			case "@fork":
 				// find the score:
 				var patt = this.todo.pop();
@@ -752,9 +816,9 @@ Q.prototype.step = function() {
 					break;
 				}
 				// find parent PQ:
-				var seq = sequencers[this.pq];
-				if (seq) {
-					seq.fork(patt, this.t, this);
+				var s = sequencers[this.pq];
+				if (s) {
+					s.fork(patt, this.t, this);
 				} else {
 					console.error("can't fork without a scheduler, couldn't find scheduler", this.pq);
 				}
@@ -770,9 +834,9 @@ Q.prototype.step = function() {
 				}
 				//this.todo.push(["@fork", ["@loop", patt]]);
 				// find parent PQ:
-				var seq = sequencers[this.pq];
-				if (seq) {
-					seq.fork(["@forever", patt], this.t, this);
+				var s = sequencers[this.pq];
+				if (s) {
+					s.fork(["@forever", patt], this.t, this);
 				} else {
 					console.error("can't fork without a scheduler, couldn't find scheduler", this.pq);
 				}
@@ -787,12 +851,13 @@ Q.prototype.step = function() {
 					console.error("loop body must be a pattern (an array)");
 					break;
 				}
+				if (patt.length) {
 			
-				// push instruction again (the loop flow)
-				this.todo.push(item);
-				// push content of instruction (the loop body)
-				this.todo.push(patt);
-		
+					// push instruction again (the loop flow)
+					this.todo.push(item);
+					// push content of instruction (the loop body)
+					this.todo.push(patt);
+				}		
 				break;
 			
 			case "@repeat":
@@ -828,7 +893,7 @@ Q.prototype.step = function() {
 				}
 				break;
 			
-			case "@alt":
+			case "@iter":
 		
 				var patt = this.todo.pop();
 				if (Array.isArray(patt) && patt.length) {
@@ -1079,6 +1144,7 @@ Q.prototype.step = function() {
 				var olo = this.stack.pop();
 				var ihi = this.stack.pop();
 				var ilo = this.stack.pop();
+				var v = this.stack.pop();
 				
 				if (ihi == ilo) {
 					this.stack.push(olo);
@@ -1098,6 +1164,7 @@ Q.prototype.step = function() {
 				strings.note(freq, amp * amp * 2);
 				break;
 			
+			
 			// [amp, freq, "@pluck"]
 			case "@pluck-note":
 				var amp = this.stack.pop();
@@ -1109,18 +1176,7 @@ Q.prototype.step = function() {
 				// strings by default seem too quiet:
 				strings.note(freq, amp * amp * 2);
 				break;
-				
-			case "@time": this.stack.push(this.t); break;
-			case "@rate": this.stack.push(this.rate); break;
-				
-			case "@ws":
-				// eat up all the stack:
-				var msg = this.stack.join(" ");
-				this.stack.length = 0;
-				 
-				ws_send(this.t + " " + msg);
-				break;
-				
+			
 			case "@kick-note": 
 				kick.amp = 0.5 * this.stack.pop(); // pitch, decay, tone, amp
 				kick.note(); 
@@ -1132,6 +1188,16 @@ Q.prototype.step = function() {
 			case "@hat-note": 
 				hat.amp = this.stack.pop(); 
 				hat.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
+				break;
+			case "@conga-note": 
+				conga.amp = 0.25 * this.stack.pop();
+				conga.pitch = this.stack.pop();
+				conga.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
+				break;
+			case "@tom-note": 
+				tom.amp = 0.25 * this.stack.pop();
+				tom.pitch = this.stack.pop();
+				tom.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
 				break;
 				
 			case "@kick": 
@@ -1146,6 +1212,21 @@ Q.prototype.step = function() {
 				hat.amp = this.get("amp"); 
 				hat.note(); // amp: 1, pitch: 325, bpfFreq:7000, bpfRez:2, hpfFreq:.975, hpfRez:0, decay:3500, decay2:3000
 				break;
+				
+			case "@conga": 
+				conga.amp = this.get("amp") * 0.25; 
+				conga.pitch = this.get("freq");
+				conga.note(); 
+				break;
+			case "@tom": 
+				tom.amp = this.get("amp") * 0.25; 
+				tom.pitch = this.get("freq");
+				tom.note(); 
+				break;
+			
+			case "@time": this.stack.push(this.t); break;
+			case "@rate": this.stack.push(this.rate); break;
+				
 				
 			default:
 				console.error("unknown instruction operator:", op);
@@ -1204,7 +1285,7 @@ function chance(f, pt, pf) { return [f, "@chance", pt, pf]; }
 function cond(f, pt, pf) { return [f, "@cond", pt, pf]; }
 function sub(a, b) { return [a, b, "@sub"]; }
 function pick(l) { return [ "@pick", l ]; }
-function alt(l) { return [ "@alt", l ]; }
+function alt(l) { return [ "@iter", l ]; }
 function execute(l, args) { 
 	if (args != undefined) return [l, "@execute", args]; 
 	else return [l, "@execute"];
@@ -1239,8 +1320,8 @@ score = loop([
 		rotate([print("x"), print("y"), print("z"), print("_")], alt([1, -2])),
 		chance(0.5, print("BOOOO")),
 		//cond(alt([0,1,0]), print("YES"), print("NO")),
-		["@alt",[0,1,0]],"@cond",["YES","@print"],["NO","@print"],
-		"@alt", [440, 550, 660], "@freq",
+		["@iter",[0,1,0]],"@cond",["YES","@print"],["NO","@print"],
+		"@iter", [440, 550, 660], "@freq",
 		"@pluck",
 	
 	print("___________")
