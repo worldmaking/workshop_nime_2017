@@ -193,6 +193,11 @@ hat = new Gibberish.Hat({ amp: 1.5 }).connect();
 conga = new Gibberish.Conga({ amp:.25, freq:400 }).connect();
 tom = new Gibberish.Tom({ amp:.25, freq:400 }).connect();
 strings = new Gibberish.PolyKarplusStrong({maxVoices: 32}).connect();
+bass = new Gibberish.MonoSynth({ 
+  attack:44, decay:Gibberish.Time.beats( .25 ),
+  filterMult:.45,
+  octave2:0, octave3:0
+}).connect()
 
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1212,7 +1217,23 @@ Q.prototype.step = function() {
 				strings.note(freq, amp * amp * 2);
 				break;
 			
-			case "@kick-note": 
+      case "@bass":
+				var velocity = this.stack.pop();
+				var freq = this.stack.pop();
+				
+				if (freq <= 0) break;
+				bass.note(freq, velocity);
+
+				break;
+			case "@bass-note":
+				var velocity = this.stack.pop();
+				var freq = this.stack.pop();
+				
+				if (freq <= 0) break;
+				bass.note(freq, velocity);
+
+        break;
+      case "@kick-note": 
 				kick.amp = 0.5 * this.stack.pop(); // pitch, decay, tone, amp
 				kick.note(); 
 				break;
