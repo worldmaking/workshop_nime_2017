@@ -941,7 +941,7 @@ function changed_value(element, noplay) {
 		result = JSON.stringify(output);
 		// try to play it?
 		if (!noplay && Array.isArray(output)) {
-			seq.define("default", output);
+			window.seq.define("default", output);
 		}
 	} catch(ex) {
 		//console.log(ex.message);

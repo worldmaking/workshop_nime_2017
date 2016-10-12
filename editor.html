@@ -216,7 +216,7 @@ var tracer = {
 
 function execute(text) {
 	var res = parser.parse(text, { trace: tracer });
-  seq.define("default", res); 
+  window.seq.define("default", res); 
   out_div.innerText = JSON.stringify(res);
 }	
 

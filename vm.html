@@ -561,7 +561,7 @@ document.getElementById('toc').innerHTML = marked(toc.join("\n"));
 ////////////////////////////////////////////////////////////////////////////////
 
 $(".lang-javascript").each(function() {
-	$(this).click(function() { seq.play_element_text(this); });
+	$(this).click(function() { window.seq.play_element_text(this); });
 });
 
 </script>
