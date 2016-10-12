@@ -46,6 +46,8 @@ var WorkshopStorage = {
       WorkshopStorage.getNameAndSave()
     }
 
+    loadMenu.innerHTML = '<option>default</option>'
+
     var userFileNames = Object.keys( this.values.userFiles )
     for( var i = 0; i < userFileNames.length; i++ ){
       var opt = document.createElement('option')
@@ -68,6 +70,7 @@ var WorkshopStorage = {
     }
 
     WorkshopStorage.save() 
+    WorkshopStorage.createGUI()
   },
 
   save : function() {
@@ -97,6 +100,7 @@ var WorkshopStorage = {
   saveFileWithName: function( name, txt ) {
     this.values.userFiles[ name ] = txt
     this.save()
+    
   },
 
   /* this file is saved after every user submitted code run. It represents the
