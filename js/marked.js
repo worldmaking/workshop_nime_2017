@@ -361,7 +361,7 @@ Lexer.prototype.token = function(src, top, bq) {
           ? 'paragraph'
           : 'html',
         pre: !this.options.sanitizer
-          && (cap[1] === 'pre' || cap[1] === 'script' || cap[1] === 'style'),
+          && (cap[1] === 'textarea' || cap[1] === 'pre' || cap[1] === 'script' || cap[1] === 'style'),
         text: cap[0]
       });
       continue;

@@ -14,6 +14,10 @@ wrap = function (n, m) {
 	return ((n%m)+m)%m;
 };
 
+mtof = function(pitch) {
+	return 440 * Math.pow(2, (+pitch - 69)/12);
+}
+
 function array_shuffle(a) {
     var j, x, i;
     for (i = a.length; i; i--) {
@@ -45,7 +49,56 @@ renderer.heading = function(text, level, raw) {
         + '</h' + level + '>\n';
 };
 
-
+highlight = function (code, lang) {
+	if (lang == "peg") {
+		try {
+			var a = pegjs_pegjs.parse(code);
+			for (var i=0; i<a.length; i++) {
+				var v = a[i];
+				switch (v.type) {
+				case "js": {
+					a[i] = hljs.highlight("js", v.text).value;
+					break;
+				}
+				case "comment": {
+					a[i] = '<span class="hljs-comment">' + v.text + "</span>";
+					break;
+				}
+				case "argument": {
+					a[i] = v.text;
+					break;
+				}
+				case "ruledef": {
+					a[i] = '<span class="hljs-type">' + v.text + "</span>";
+					break;
+				}
+				case "rulename": {
+					a[i] = '<span class="hljs-variable">' + v.text + "</span>";
+					break;
+				}
+				case "string": {
+					a[i] = '<span class="hljs-string">' + v.text + "</span>";
+					break;
+				}
+				case "range":
+				case "operator": {
+					a[i] = '<span class="hljs-regexp">' + v.text + "</span>";
+					break;
+				}
+				default:
+					//console.log(v.type);
+				}
+			}
+			return a.join("");
+		
+		} catch(e) {
+			console.log("ERROR", e.message);
+			console.log(code);
+		}
+	}
+	// fallback:
+	return hljs.highlight(lang, code).value;
+};
 
 marked.setOptions({
 	renderer: renderer,
@@ -76,56 +129,7 @@ marked.setOptions({
     }
 		
 	*/
-	highlight: function (code, lang) {
-		if (lang == "peg") {
-			try {
-				var a = pegjs_pegjs.parse(code);
-				for (var i=0; i<a.length; i++) {
-					var v = a[i];
-					switch (v.type) {
-					case "js": {
-						a[i] = hljs.highlight("js", v.text).value;
-						break;
-					}
-					case "comment": {
-						a[i] = '<span class="hljs-comment">' + v.text + "</span>";
-						break;
-					}
-					case "argument": {
-						a[i] = v.text;
-						break;
-					}
-					case "ruledef": {
-						a[i] = '<span class="hljs-type">' + v.text + "</span>";
-						break;
-					}
-					case "rulename": {
-						a[i] = '<span class="hljs-variable">' + v.text + "</span>";
-						break;
-					}
-					case "string": {
-						a[i] = '<span class="hljs-string">' + v.text + "</span>";
-						break;
-					}
-					case "range":
-					case "operator": {
-						a[i] = '<span class="hljs-regexp">' + v.text + "</span>";
-						break;
-					}
-					default:
-						//console.log(v.type);
-					}
-				}
-				return a.join("");
-			
-			} catch(e) {
-				console.log("ERROR", e.message);
-				console.log(code);
-			}
-		}
-		// fallback:
-		return hljs.highlight(lang, code).value;
-  	},
+	highlight: highlight,
 });
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -395,6 +399,14 @@ seq.clear = function() {
 		sequencers[k].disconnect();
 		delete sequencers[k];
 	}
+}
+
+// triggered by the onclick of an html element
+// grabs the innertext and plays it
+// e.g. <a href="#" onclick="seq.play_element_text(this)">["@pluck"]</a>
+seq.play_element_value = function(element) {
+	// play element's text:
+	seq.define("default", JSON.parse(element.value));
 }
 
 // triggered by the onclick of an html element
