@@ -38,8 +38,6 @@ Instructors: [Graham Wakefield](http://www.grahamwakefield.net) & [Charlie Rober
 
 > In this workshop participants will design and develop a idiosyncratic (perhaps even esoteric) language for live coding. These languages will be designed and run in a readily-accessible browser-based code editor, using open-source software we provide. The workshop will give a gentle introduction to the construction of grammars for parsing, using friendly browser-based libraries, with which participants will design their own mini-languages for defining musical patterns. No experience in any of these specific technologies is necessary. However, some programming experience will be helpful. An open-source browser-based editing environment and support library will be provided to participants. This environment leverages the codemirror and peg.js projects, and can dynamically evaluate code to communicate via websockets with other platforms for generating audiovisual content. We will reserve time for participants to experiment with other languages created in the workshop, so that they can obtain feedback and inspiration from each other. Participants will leave with the knowledge required to continue development of their language on their own.
 
-<div id="toc"></div>
-
 ## Intro
 
 We're going to design languages for live coding. We don't have much time, so they're going to have to be simple, but that doesn't mean they can't be unusual ([for inspiration, look at this list of esoteric languages here](https://esolangs.org/wiki/Language_list)). Our languages are going to be input as raw text, and our job is to build the parser that can understand this text. Parsing is the general problem of turning raw text into meaningfully-structured data and/or actions, such as sonic events. 
@@ -82,43 +80,6 @@ Some live coding languages make an effort to use textual space in a temporally-m
 		<div class="full column" id="main_body">
 		</div>
 	</div>
-<<<<<<< HEAD
-
-  <div class="row"> 
-		<div class="full column" id="saveAndLoad">
-      <label style="display:inline">LOAD</label>
-      <select id="loadMenu">
-        <option>default</option>
-      </select>  
-	    <button id="saveBtn" class="button-primary" style="margin-left:3em">save</button>
-		</div>
-	</div>
-
-	<div class="row">
-		<div class="one-half column">
-			<h4>Grammar:</h4>
-			<textarea id="peged"> 
-      </textarea>
-			<div id="peg_msg"></div>
-		</div>
-
-		<div class="one-half column">
-			<h4>Input:</h4>
-
-      <textarea id="ed"></textarea>
-
-			<div id="ed_msg"></div>
-        <hr/>
-        <button class="button-primary" id="ed_start">Start</button>
-        <button class="button-primary" id="ed_stop">Stop</button>
-        <h4>Output:</h4>
-        <div id="output"></div>
-        <hr/>
-    	</div>
-
-	</div>
-=======
->>>>>>> separated
 </div>
 
 
@@ -127,112 +88,6 @@ Some live coding languages make an effort to use textual space in a temporally-m
 
 var body = document.getElementById('sourcetext').innerText;
 document.getElementById('main_body').innerHTML = marked(body);
-
-////////////////////////////////////////////////////////////////////////////////
-
-<<<<<<< HEAD
-var peged = CodeMirror.fromTextArea(document.getElementById("peged"), {mode: "pegjs"});
-var peg_msg_div = document.getElementById("peg_msg");
-
-var ed;
-
-var ed_trigger = function(ed) {
-	// if selection is empty, select entire line or containing block?
-	
-	if (parser === undefined) make_parser(); 
-	
-	console.log("trigger", ed.getSelection());
-  execute(ed.getSelection());
-}
-
-// see http://codemirror.net/3/doc/manual.html#keymaps
-var ed_options = {
-  extraKeys: {
-    "Ctrl-Enter": ed_trigger,
-    "Cmd-Enter": ed_trigger,
-  }
-};
-
-ed = CodeMirror.fromTextArea(document.getElementById("ed"), ed_options);
-var ed_msg_div = document.getElementById("ed_msg");
-var out_div = document.getElementById("output");
-
-var start_button = document.getElementById("ed_start");
-var stop_button = document.getElementById("ed_stop");
-
-start_button.onclick = function() { parse(); }
-stop_button.onclick = function() { seq.clear(); }
-
-// events: http://codemirror.net/3/doc/manual.html#events
-// e.g. use the "change" event to respond to code without needing to trigger it. e.g. in-place formatting changes, but maybe also super-live-immediate mode! Other cursor/selection/gutter events. 
-// "renderLine" event to style-by-parser?
-peged.on("change", function(ed, change) {
-  parser = undefined;
-  parse();
-});
-
-ed.on("change", function(ed, change) {
-  parse();
-});
-
-// PEG:
-// http://pegjs.org/documentation
-
-var parser;
-
-function make_parser() {
-  peg_msg_div.innerText = "";
-  try {
-    // update our parser:
-    parser = PEG.buildParser(peged.getValue());
-  } catch(ex) {
-    //console.log(ex.message);
-    peg_msg_div.innerText = ex.message;
-  }
-}
-
-var tracer = {
-  trace: function(o) {
-    console.log("trace", o);
-  }
-};
-
-function execute(text) {
-	var res = parser.parse(text, { trace: tracer });
-  seq.define("default", res); 
-  out_div.innerText = JSON.stringify(res);
-}	
-
-var parseCount = 0
-function parse() {
-  if( parseCount++ === 0 ) return 
-  window.WorkshopStorage.saveState( peged.getValue(), ed.getValue() )
-
-  ed_msg_div.innerText = "";
-  out_div.innerText = "";
-  try {
-    if (parser === undefined) make_parser(); 
-    execute(ed.getValue());
-  
-  } catch(ex) {
-    console.log(ex.message);
-    ed_msg_div.innerText = ex.message;
-  }
-}
-
-
-WorkshopStorage.init( peged, ed, peg_text, ed_text )
-
-
-if( WorkshopStorage.values.lastSavedState.grammar !== null ) {
-  peged.setValue( WorkshopStorage.values.lastSavedState.grammar )
-  ed.setValue( WorkshopStorage.values.lastSavedState.test )
-}else{
-  peged.setValue( peg_text ) 
-  ed.setValue( ed_text )
-}
-=======
->>>>>>> separated
 
 </script>
 
