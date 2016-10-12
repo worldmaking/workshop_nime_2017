@@ -254,7 +254,7 @@ function ws_connect() {
         	} else {
         		if (ev.data.substr(0, 4) == "get ") {
         			external.t = +ev.data.substr(4);
-					if (external.linked) window.seq.external_resume();
+					//if (external.linked) window.seq.external_resume();
         		} else {    		
 	        		console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
 	        	}
