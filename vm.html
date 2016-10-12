@@ -446,6 +446,25 @@ Say you want to be able to launch a loop, then let it keep running while you lau
 
 ---
 
+## Sending out over a websocket
+
+There is also a command for sending data out over a websocket. By default the browser will try to connect to "ws://localhost:8080/", and if it can, it will use timing from the external source.
+
+```javascript
+[
+	"@loop", [
+		"pluck", "@iter", [["@iter", [440, 330]], 220, 165], "@ws-2",
+		0.25, "@wait"
+	],
+	"@loop", [
+		"@iter", ["kick", "snare"], "@ws-1",
+		0.75, "@wait"
+	]
+]
+```
+
+---
+
 ## Reference
 
 Here are all the important concepts supported and how to format them in the target code:
