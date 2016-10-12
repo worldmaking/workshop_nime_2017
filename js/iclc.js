@@ -208,10 +208,21 @@ bass = new Gibberish.MonoSynth({
 
 var wsocket; 
 var connectTask;
-var port = 8080;
-var host = "localhost";
+
+var qstr = window.location.search,
+    querystring = {},
+    a = qstr.substr(1).split('&');
+for (var i = 0; i < a.length; i++) {
+  var b = a[i].split('=');
+  querystring[decodeURIComponent(b[0])] = decodeURIComponent(b[1] || '');
+}
+
+var host = querystring.host || 'localhost',
+    port = querystring.port || '8080';
 
 function ws_connect() {
+<<<<<<< HEAD
+
   if ('WebSocket' in window) {
     var address = "ws://" + host + ":" + port + "/";
     var ws = new WebSocket(address);
@@ -252,7 +263,15 @@ function ws_connect() {
         var tree = JSON.parse(ev.data);
         console.log("parsed " + JSON.stringify(tree));
       } else {
-        if (ev.data.substr(0, 4) == "get ") {
+        var args = ev.data.split(" ");
+		if (args[1] == "seq") {
+			external.t++;
+			if (external.linked) {
+				if( typeof window.seq === 'object' && typeof window.seq.external_resume === 'function' ) {
+					window.seq.external_resume();
+				}
+			}
+		} else if (ev.data.substr(0, 4) == "get ") {
           external.t = +ev.data.substr(4);
           if (external.linked) {
             if( typeof window.seq === 'object' && typeof window.seq.external_resume === 'function' ) {
@@ -670,9 +689,17 @@ Q.prototype.step = function() {
 			if (op.substring(0, 4) == "@ws-") {
 				var n = +op.substring(4);
 				var args = this.stack.splice(this.stack.length-n, n);
-				console.log("ws", args);
+				//console.log("ws", args);
 				var msg = args.join(" ");
 				ws_send(this.t + " " + msg);
+				return;
+			
+			} else if (op.substring(0, 4) == "@gb-") {
+				var n = +op.substring(4);
+				var args = this.stack.splice(this.stack.length-n, n);
+				//console.log("ws", args);
+				var msg = args.join(" ");
+				ws_send(msg);
 				return;
 			
 			} else if (op.substring(0, 5) == "@let-") {
