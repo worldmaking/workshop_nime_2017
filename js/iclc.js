@@ -196,7 +196,7 @@ strings = new Gibberish.PolyKarplusStrong({maxVoices: 32}).connect();
 bass = new Gibberish.MonoSynth({ 
   attack:44, 
   decay:Gibberish.Time.beats( .25 ),
-  filterMult:.45,
+  filterMult:.25,
   octave2:0, 
   octave3:0
 }).connect()
