@@ -1,19 +1,3 @@
-// exported:
-seq = {};
-
-// dictionary of active sequencers.
-sequencers = {};
-
-// dictionary of actively spawned loops.
-spawns = {};
-
-// this is where the externally triggered events are buffered to synchronize them to beats
-var cq = {
-	t: 0,
-	beat: -1,
-	cmds: [], // these get fired at the next beat
-};
-
 function random(n) {
   if (n) {
     return Math.floor(Math.random() * n);
@@ -270,7 +254,7 @@ function ws_connect() {
         	} else {
         		if (ev.data.substr(0, 4) == "get ") {
         			external.t = +ev.data.substr(4);
-					if (external.linked) seq.external_resume();
+					if (external.linked) window.seq.external_resume();
         		} else {    		
 	        		console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
 	        	}
@@ -408,7 +392,21 @@ ws_connect();
 */
 //////////////////////////////////////////////////////////////////////////////////////////
 
+// exported:
+window.seq = {};
 
+// dictionary of active sequencers.
+window.sequencers = {};
+
+// dictionary of actively spawned loops.
+window.spawns = {};
+
+// this is where the externally triggered events are buffered to synchronize them to beats
+var cq = {
+	t: 0,
+	beat: -1,
+	cmds: [], // these get fired at the next beat
+};
 
 
 cq.tick = function(t) {
@@ -433,7 +431,7 @@ cq.resume = function(t) {
 Gibberish.sequencers.push(cq);
 	
 // clear all sequencers (e.g. STOP button) -- immediate
-seq.clear = function() {
+window.seq.clear = function() {
 	for (k in sequencers) {
 		sequencers[k].disconnect();
 		delete sequencers[k];
@@ -444,17 +442,17 @@ seq.clear = function() {
 // triggered by the onclick of an html element
 // grabs the innertext and plays it
 // e.g. <a href="#" onclick="seq.play_element_text(this)">["@pluck"]</a>
-seq.play_element_value = function(element) {
+window.seq.play_element_value = function(element) {
 	// play element's text:
-	seq.define(uid(), JSON.parse(element.value));
+	window.seq.define(uid(), JSON.parse(element.value));
 }
 
 // triggered by the onclick of an html element
 // grabs the innertext and plays it
 // e.g. <a href="#" onclick="seq.play_element_text(this)">["@pluck"]</a>
-seq.play_element_text = function(element) {
+window.seq.play_element_text = function(element) {
 	// play element's text:
-	seq.define(uid(), JSON.parse(element.innerText));
+	window.seq.define(uid(), JSON.parse(element.innerText));
 	// stop the click from selecting the text:
 	if(document.selection && document.selection.empty) {
         document.selection.empty();
@@ -467,7 +465,7 @@ seq.play_element_text = function(element) {
 // define a sequencer. 
 // if name didn't exist, create a new one.
 // if name already exists, replace score. If no score, terminate the sequencer.
-seq.define = function(name, score) {
+window.seq.define = function(name, score) {
 	
 	// sync this:
 	cq.cmds.push(function() {
@@ -483,17 +481,17 @@ seq.define = function(name, score) {
 }
 
 // terminate a named sequencer.
-seq.stop = function(name) {
+window.seq.stop = function(name) {
 	if (!typeof name == "string") {
 		console.log("error: missing sequence name"); return;
 	}
-	var seq = sequencers[name];
-	if (seq !== undefined) {
-		seq.disconnect();
+	var _seq = sequencers[name];
+	if (_seq !== undefined) {
+		_seq.disconnect();
 	}
 }
 
-seq.external_resume = function() {
+window.seq.external_resume = function() {
 	var t1 = external.t + bpm * bpm2bpa;
 	cq.resume(t1);
 	for (k in sequencers) {
