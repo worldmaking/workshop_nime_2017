@@ -1,3 +1,19 @@
+// exported:
+seq = {};
+
+// dictionary of active sequencers.
+sequencers = {};
+
+// dictionary of actively spawned loops.
+spawns = {};
+
+// this is where the externally triggered events are buffered to synchronize them to beats
+var cq = {
+	t: 0,
+	beat: -1,
+	cmds: [], // these get fired at the next beat
+};
+
 function random(n) {
   if (n) {
     return Math.floor(Math.random() * n);
@@ -392,21 +408,7 @@ ws_connect();
 */
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// exported:
-seq = {};
 
-// dictionary of active sequencers.
-sequencers = {};
-
-// dictionary of actively spawned loops.
-spawns = {};
-
-// this is where the externally triggered events are buffered to synchronize them to beats
-var cq = {
-	t: 0,
-	beat: -1,
-	cmds: [], // these get fired at the next beat
-};
 
 
 cq.tick = function(t) {
