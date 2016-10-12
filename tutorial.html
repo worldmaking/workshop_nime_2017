@@ -917,9 +917,6 @@ var body = document.getElementById('sourcetext').innerText;
 document.getElementById('main_body').innerHTML = marked(body);
 document.getElementById('toc').innerHTML = marked(toc.join("\n"));
 
-
-
-
 $(".input").each(function() {
 	$(this).keyup(function() { changed_value(this); });
 	$(this).focus(function() { changed_value(this); });
@@ -951,6 +948,7 @@ function changed_value(element, noplay) {
 }
 
 window.seq = Gibberish.getSeq()
+console.log( 'THIS IS THE SEQ', window.seq )
 
 </script>
 
