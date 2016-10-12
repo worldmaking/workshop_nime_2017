@@ -882,11 +882,22 @@ However note that the structure it returns will look different. We can use actio
 
 ---
 
-### Nerdy corner
-
-Why Parsing Expression Grammar (PEG) rather than Context-Free Grammar (CFG)? Because the choice operator always selects the first match (in CFG this is ambiguous) -- with PEGs there is only one valid parse tree. Compared to Regular Expressions, PEGs have the ability to define recursive structures (and they're also a bit easier to read!)
+### Language oriented programming
 
 This workshop is an example of [Language-oriented programming](https://en.wikipedia.org/wiki/Language-oriented_programming) (LOP); a style of computer programming in which, rather than solving problems in general-purpose programming languages, the programmer creates one or more domain-specific languages for the problem first, and solves the problem in those languages. 
+
+One way of thinking about how to design a language is to start from the result, and work back. The results are the kinds of things our engine can actually produce (or more accurately, the subset of these things that we are likely to want to produce). This way of thinking effectively means designing a collection of short-cuts, short-hands, macros, simple fragments that can expand into fully-specified events. 
+
+Though a grammar is defined top-down, it's usually easier to build & think about bottom up. How about coming up with a palette of interesting basic patterns or phrases, then starting to find ways to combine them via grammar abstractions?
+
+Sketching out a few examples of simple phrases or statements the grammar should understand (and what it should reject!) can help. 
+
+You can also think about it in a modular way: what types of things can be plugged into others. E.g., for the form "A + B" you might think of being able to plug numbers, words, and parentheses clauses in, e.g. "a + 1", "x + (y + z)", etc. The rules of the grammar identify things that can be plugged in, and what can be plugged into them. We make rules ("nonterminals") for several reasons:
+- the same sub-pattern can reappear in many different locations
+- to break up complex patterns into more digestible chunks, with helpful names
+- to identify points in the grammar at which structure can change
+
+Some live coding languages make an effort to use textual space in a temporally-meaningful way. In ixilang patterns, textual space maps directly onto sound. This works well because sound events are always a single character. To create a rest, insert a space character. The number of characters in a pattern is also the temporal length of the pattern. In Tidal, patterns have a loop length determined by context, which could be for example a couple of beats. By default, events within the pattern are distributed evenly in time, making it easy to create different subdivisions of a meter. Events are delimited by spaces (making them like words). In Gibber, a pattern includes two separate lists, one for the event data, the other for the timing of that data. However in some cases events can be single-characters, granting a mapping of space to time as with ixilang. How will you determine the timing of events in a pattern, and will it use character- and/or word-based spacing?
 
 ---
 

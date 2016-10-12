@@ -44,37 +44,17 @@ Instructors: [Graham Wakefield](http://www.grahamwakefield.net) & [Charlie Rober
 
 > In this workshop participants will design and develop a idiosyncratic (perhaps even esoteric) language for live coding. These languages will be designed and run in a readily-accessible browser-based code editor, using open-source software we provide. The workshop will give a gentle introduction to the construction of grammars for parsing, using friendly browser-based libraries, with which participants will design their own mini-languages for defining musical patterns. No experience in any of these specific technologies is necessary. However, some programming experience will be helpful. An open-source browser-based editing environment and support library will be provided to participants. This environment leverages the codemirror and peg.js projects, and can dynamically evaluate code to communicate via websockets with other platforms for generating audiovisual content. We will reserve time for participants to experiment with other languages created in the workshop, so that they can obtain feedback and inspiration from each other. Participants will leave with the knowledge required to continue development of their language on their own.
 
-## Intro
-
 We're going to design languages for live coding. We don't have much time, so they're going to have to be simple, but that doesn't mean they can't be unusual ([for inspiration, look at this list of esoteric languages here](https://esolangs.org/wiki/Language_list)). Our languages are going to be input as raw text, and our job is to build the parser that can understand this text. Parsing is the general problem of turning raw text into meaningfully-structured data and/or actions, such as sonic events. 
 
 We're going to do most of this using web-based technologies, supported by JavaScript. For example, grammars will be implemented using the [PEG.js](http://pegjs.org) library, the text editor uses the [CodeMirror](http://codemirror.net/) library, our example sounds are generated from the [Gibberish](http://www.charlie-roberts.com/gibberish/) library, etc. -- but you don't really need to know all of this, as they're already built-in to our workshop pages. One good thing though is that you can take your languages with you -- the grammars are designed for [Peg.js](http://pegjs.org/online) but follow a more general formalism that can be embedded in other places and systems.
 
 As language creators, we need to decide what kinds of text fragments will turn into what kinds of actions. We need to know:
 
-1. what kinds of actions can we make?
-	- For this workshop, the kinds of actions we can make are instrument note triggers, instrument parameter changes, scheduling of events, and some other things. We can learn about what kinds of things we can generate by [looking at our target language here](vm.html).
+1. **What kinds of text fragments can we recognize?** We'll look at a variety of examples. We can start by [learning about Parsing Expression Grammars with our tutorial here](tutorial.html), and [elsewhere](https://en.wikipedia.org/wiki/Parsing_expression_grammar)
+
+2. **What kinds of actions can we make?** For this workshop, the kinds of actions we can make are instrument note triggers, instrument parameter changes, scheduling of events, and some other things. We can learn about what kinds of things we can generate by [looking at our target language here](vm.html).
 	
-2. what kinds of text fragments can we recognize? 
-	- We'll look at a variety of examples. We can start by [learning about Parsing Expression Grammars with our tutorial here](tutorial.html), and [elsewhere](https://en.wikipedia.org/wiki/Parsing_expression_grammar)
-	
-3. how to specify the mapping between text and action
-	- We'll work on new mappings by live coding in [the editor](editor.html)
-	
----
-
-One way of thinking about how to design a language is to start from the result, and work back. The results are the kinds of things our engine can actually produce (or more accurately, the subset of these things that we are likely to want to produce). This way of thinking effectively means designing a collection of short-cuts, short-hands, macros, simple fragments that can expand into fully-specified events. 
-
-Though a grammar is defined top-down, it's usually easier to build & think about bottom up. How about coming up with a palette of interesting basic patterns or phrases, then starting to find ways to combine them via grammar abstractions?
-
-Sketching out a few examples of simple phrases or statements the grammar should understand (and what it should reject!) can help. 
-
-You can also think about it in a modular way: what types of things can be plugged into others. E.g., for the form "A + B" you might think of being able to plug numbers, words, and parentheses clauses in, e.g. "a + 1", "x + (y + z)", etc. The rules of the grammar identify things that can be plugged in, and what can be plugged into them. We make rules ("nonterminals") for several reasons:
-- the same sub-pattern can reappear in many different locations
-- to break up complex patterns into more digestible chunks, with helpful names
-- to identify points in the grammar at which structure can change
-
-Some live coding languages make an effort to use textual space in a temporally-meaningful way. In ixilang patterns, textual space maps directly onto sound. This works well because sound events are always a single character. To create a rest, insert a space character. The number of characters in a pattern is also the temporal length of the pattern. In Tidal, patterns have a loop length determined by context, which could be for example a couple of beats. By default, events within the pattern are distributed evenly in time, making it easy to create different subdivisions of a meter. Events are delimited by spaces (making them like words). In Gibber, a pattern includes two separate lists, one for the event data, the other for the timing of that data. However in some cases events can be single-characters, granting a mapping of space to time as with ixilang. How will you determine the timing of events in a pattern, and will it use character- and/or word-based spacing?
+3. **How to specify the mapping between text and action?** We'll work on new mappings by live coding in [the editor](editor.html)
 
 ---
 
