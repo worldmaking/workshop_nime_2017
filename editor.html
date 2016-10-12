@@ -53,9 +53,18 @@ On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the curre
 <div class="container">
 	<div class="row" style="margin-top: 25%">
 		<div class="full column" id="main_body">
-		
 		</div>
 	</div>
+	<div class="row"> 
+		<div class="full column" id="saveAndLoad">
+      <label style="display:inline">LOAD</label>
+      <select id="loadMenu">
+        <option>default</option>
+      </select>  
+	    <button id="saveBtn" class="button-primary" style="margin-left:3em">save</button>
+		</div>
+	</div>
+
 	<div class="row">
 		<div class="one-half column">
 			<h4>Grammar:</h4>
@@ -66,9 +75,7 @@ On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the curre
 		<div class="one-half column">
 			<h4>Input:</h4>
 
-<textarea id="ed">
-
-</textarea>
+<textarea id="ed"></textarea>
 
 			<div id="ed_msg"></div>
 			<hr/>
