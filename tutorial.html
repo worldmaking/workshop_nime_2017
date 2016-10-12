@@ -947,8 +947,10 @@ function changed_value(element, noplay) {
 	$(element).next( ".result" )[0].innerText = result; //.text(result);
 }
 
-window.seq = Gibberish.getSeq()
-console.log( 'THIS IS THE SEQ', window.seq )
+setTimeout( function() {
+  window.seq = Gibberish.getSeq()
+  console.log( 'THIS IS THE SEQ', window.seq )
+}, 5000 )
 
 </script>
 
