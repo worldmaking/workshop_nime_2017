@@ -17,23 +17,6 @@
 <script src="js/highlight.min.js"></script>
 <script src="js/hljs/javascript.min.js"></script>
 
-<script src="js/peg.min.js"></script>
-<script src="js/pegjs.pegjs.js"></script>
-
-<script src="js/codemirror.min.js"></script>
-<script src="js/mode/pegjs.min.js"></script>
-
-<script src="js/big.min.js"></script>
-<script src="js/gibberish.min.js"></script>
-<script src="js/iclc.js"></script>
-<script src="js/storage.js"></script>
-
-<!-- Load the dynamic version of hoodie.js that includes all the plugin code-->
-<!--<script src="/_api/_files/hoodie.js"></script>-->
-
-<!--<script src="assets/vendor/hoodie.accountbar.bootstrap.js"></script>-->
-<!--<script src="assets/vendor/bootstrap.modalform.js"></script>-->
-
 <style>
 /* see http://getskeleton.com/ */
 html { font-size: 50%; } 
@@ -71,6 +54,9 @@ As language creators, we need to decide what kinds of text fragments will turn i
 	- We'll look at a variety of examples. We can start by [learning about Parsing Expression Grammars with our tutorial here](tutorial.html), and [elsewhere](https://en.wikipedia.org/wiki/Parsing_expression_grammar)
 	
 3. how to specify the mapping between text and action
+	- We'll work on new mappings by live coding in [the editor](editor.html)
+	
+---
 
 One way of thinking about how to design a language is to start from the result, and work back. The results are the kinds of things our engine can actually produce (or more accurately, the subset of these things that we are likely to want to produce). This way of thinking effectively means designing a collection of short-cuts, short-hands, macros, simple fragments that can expand into fully-specified events. 
 
@@ -85,14 +71,6 @@ You can also think about it in a modular way: what types of things can be plugge
 
 Some live coding languages make an effort to use textual space in a temporally-meaningful way. In ixilang patterns, textual space maps directly onto sound. This works well because sound events are always a single character. To create a rest, insert a space character. The number of characters in a pattern is also the temporal length of the pattern. In Tidal, patterns have a loop length determined by context, which could be for example a couple of beats. By default, events within the pattern are distributed evenly in time, making it easy to create different subdivisions of a meter. Events are delimited by spaces (making them like words). In Gibber, a pattern includes two separate lists, one for the event data, the other for the timing of that data. However in some cases events can be single-characters, granting a mapping of space to time as with ixilang. How will you determine the timing of events in a pattern, and will it use character- and/or word-based spacing?
 
----
-
-### Our editor
-
-On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the currently selected text.
-
-
-
 
 
 </script>
@@ -103,6 +81,7 @@ On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the curre
 		<div class="full column" id="main_body">
 		</div>
 	</div>
+<<<<<<< HEAD
 
   <div class="row"> 
 		<div class="full column" id="saveAndLoad">
@@ -137,64 +116,20 @@ On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the curre
     	</div>
 
 	</div>
+=======
+>>>>>>> separated
 </div>
 
 
 
 <script>
-var ed_text = [
-  '@loop(',
-  '	@alt (0.01 0.2 0.01) @hat-note',
-  '	@alt (1 3) 8 @div @wait',
-  ')',
-  '@loop (',
-  '	(@alt (14 15 16 17 18) 44 @mul) @set-freq', 
-  '    0.05 @set-amp',
-  '	@pluck',
-  '	@pick (5 7) 32 @div @wait',
-  ')',
-  '@loop (',
-  '	(@alt (16 6 15 5 10 4 12) 44 @mul) @set-freq',
-  '    1 @pick (2 3 5 6 5 6 5) @div @set-amp',
-  '	@pluck',
-  '	@alt (5 1 9 1) 32 @div @wait',
-  ')',
-].join('\n')
-
-var peg_text = [
-  'sentence ',
-  '= _ words:word+ _ { ',
-  '	return words; ',
-  '}',
-  '',
-  'word ',
-  '= text:(list / number / $letter+) _ { ',
-  '	return text; ',
-  '}',
-  '',
-  'list',
-  '= "(" _ body:sentence _ ")" {',
-  '	return body;',
-  '}',
-  '',
-  '_ ',
-  '= [ \\n\\t ]* // any spaces, tabs or newlines',
-  '',
-  'letter ',
-  '= [a-zA-Z@+*/%?-] // any letter, or hyphen, or @',
-  '',
-  'number ',
-  '= text:$("-"? (([0-9]+ ("." [0-9]*)?) / ("." [0-9]+))) { ',
-  '	return +text;  // converts text to a Javascript number',
-  '}',
-].join('\n')
 
 var body = document.getElementById('sourcetext').innerText;
 document.getElementById('main_body').innerHTML = marked(body);
-document.getElementById('toc').innerHTML = marked(toc.join("\n"));
 
 ////////////////////////////////////////////////////////////////////////////////
 
+<<<<<<< HEAD
 var peged = CodeMirror.fromTextArea(document.getElementById("peged"), {mode: "pegjs"});
 var peg_msg_div = document.getElementById("peg_msg");
 
@@ -295,6 +230,8 @@ if( WorkshopStorage.values.lastSavedState.grammar !== null ) {
   peged.setValue( peg_text ) 
   ed.setValue( ed_text )
 }
+=======
+>>>>>>> separated
 
 </script>
 

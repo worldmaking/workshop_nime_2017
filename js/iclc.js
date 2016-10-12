@@ -558,7 +558,7 @@ PQ.prototype.resume = function(t) {
 		}
 	}
 	if (runaway_limit <= 0) {
-		console.error("unbounded loop detected");
+		console.error("PQ resume unbounded loop detected");
 		this.disconnect();
 	}
 	this.t = t;
@@ -1252,7 +1252,7 @@ Q.prototype.flush = function() {
 		this.step();	
 	}
 	if (runaway_limit == 0) {
-		console.error("unbounded loop detected");
+		console.error("Q flush unbounded loop detected");
 	}
 }
 
