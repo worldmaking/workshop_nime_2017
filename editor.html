@@ -44,7 +44,12 @@ table { width:100%; }
 
 <script type="bogus" id="sourcetext">
 
-# The editor
+# Design a Mini Live Coding Language
+
+<button onclick="window.location.href='index.html'">Introduction</button>
+<button onclick="window.location.href='tutorial.html'">Parsing tutorial</button>
+<button onclick="window.location.href='vm.html'">Target language</button>
+<button class="button-primary" onclick="window.location.href='editor.html'">Editor</button>
 
 On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the currently selected text.
 
@@ -98,7 +103,7 @@ var ed_text = [
   ')',
   '@loop (',
   '	(@iter (14 15 16 17 18) 44 @mul) @set-freq', 
-  '    0.05 @set-amp',
+  '    0.1 @set-amp',
   '	@pluck',
   '	@pick (5 7) 32 @div @wait',
   ')',
