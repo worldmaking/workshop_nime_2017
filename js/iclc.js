@@ -254,20 +254,18 @@ function ws_connect() {
         	} else {
         		if (ev.data.substr(0, 4) == "get ") {
         			external.t = +ev.data.substr(4);
-              if (external.linked) {
-                if( typeof window.seq === 'object' && typeof window.seq.external_resume === 'function' ) {
-                  window.seq.external_resume();
-                }
-        		  } else {    		
-	        		  console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
-	        	  }
+					//if (external.linked) window.seq.external_resume();
+        		} else {    		
+	        		console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
+	        	}
+        	}
         };
 
     } else {
         console.log("WebSockets are not available in this browser!!!");
     }
 }
-}}
+
 function ws_send(msg) {
 	if(wsocket) {
 		wsocket.send(msg);
