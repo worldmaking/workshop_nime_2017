@@ -518,7 +518,7 @@ not a							| ```a, "@not"```
 
 Note: division, modulo or wrap by zero will return zero.
 
-There are only a limited number of sounds -- this is just for the workshop. Alternatively there is a websocket output option.
+There are only a limited number of built-in sounds, for convenience:
 
 Sound				 			| Format 
 :--- 							| :---
@@ -529,7 +529,18 @@ tom								| ```freq, amp, @tom-note```   or ```@tom```
 kick							| ```amp, @kick-note```  or ```@kick```
 snare							| ```amp, @snare-note``` or ```@snare```
 hat								| ```amp, @hat-note```   or ```@hat```
+
+There are several instructions for talking to external applications.
+
+Message:						| Format
+:--- 							| :---
+MIDI note						| ```pitch, velocity, channel, duration, @note```
+MIDI note on					| ```pitch, velocity, channel, @note-on```
+MIDI note off					| ```pitch, velocity, channel, @note-off```
+MIDI controller					| ```controller, value, channel, @cc```
 Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
+
+
 
 ## Test area
 
