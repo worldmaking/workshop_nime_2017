@@ -1235,24 +1235,6 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 
 */
 			
-			// [pitch, velocity, channel, duration, "@note"]
-			case "@note":
-				var dur = +this.stack.pop();
-				var chan = +this.stack.pop();
-				var vel = +this.stack.pop();
-				var pitch = +this.stack.pop();
-				
-				// send noteon pitch vel chan
-				if (MIDI) MIDI.send( [0x90+chan,pitch,vel], 0 );
-				
-				// schedule noteoff later:
-				var s = sequencers[this.pq];
-				if (s == undefined) {
-					break;
-				}	
-				s.fork([pitch, 0, chan, "@note-off"], this.t + dur * this.rate, this);
-				
-				break;
 			
 			// [pitch, velocity, channel, "@note-on"]
 			case "@note-on":
@@ -1275,7 +1257,26 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 				if (MIDI) MIDI.send( [0x80+chan,pitch,vel], 0 );
 				
 				break;
+			
+			// [pitch, velocity, channel, duration, "@note"]
+			case "@note":
+				var dur = +this.stack.pop();
+				var chan = +this.stack.pop();
+				var vel = +this.stack.pop();
+				var pitch = +this.stack.pop();
 				
+				// send noteon pitch vel chan
+				if (MIDI) MIDI.send( [0x90+chan,pitch,vel], 0 );
+				
+				// schedule noteoff later:
+				var s = sequencers[this.pq];
+				if (s == undefined) {
+					break;
+				}	
+				s.fork([pitch, 0, chan, "@note-off"], this.t + dur * this.rate, this);
+				
+				break;
+					
 			// [controller, value, channel, "@cc"]
 			case "@cc":
 				var chan = +this.stack.pop();
