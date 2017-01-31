@@ -7,6 +7,44 @@
 * 12/29/2014
 */
 
+.iframe-container {
+  position: relative;
+  height: 0;
+  overflow: hidden;
+}
+ 
+/* 16x9 Aspect Ratio */
+.iframe-container-16x9 {
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  padding-bottom: 56.25%;
+}
+ 
+/* 4x3 Aspect Ratio */
+.iframe-container-4x3 {
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  padding-bottom: 75%;
+}
+
+.iframe-container-16x9 iframe {
+  position: absolute;
+  top:0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.iframe-container-4x3 iframe {
+  position: absolute;
+  top:0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
 
 /* Table of contents
 ––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -416,3 +454,4 @@ there.
 
 /* Larger than Desktop HD */
 @media (min-width: 1200px) {}
+

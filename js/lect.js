@@ -459,6 +459,8 @@ window.seq.clear = function() {
 		delete sequencers[k];
 	}
 	spawns = {};
+	
+	if (MIDI) MIDI.send([0x7B, 0], 0);
 }
 
 // triggered by the onclick of an html element
@@ -1293,6 +1295,8 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 				if (MIDI) {
 					MIDI.send( [0xB0+chan,controller,value], 0 );
 				}
+				
+				
 				
 			}
 			break;

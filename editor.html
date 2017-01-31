@@ -26,7 +26,7 @@
 <script src="js/big.min.js"></script>
 <script src="js/gibberish.min.js"></script>
 <script src='js/midi.js'></script>
-<script src="js/iclc.js"></script>
+<script src="js/lect.js"></script>
 <script src="js/storage.js"></script>
 
 
@@ -53,8 +53,6 @@ table { width:100%; }
 <button onclick="window.location.href='vm.html'">Target language</button>
 <button class="button-primary" onclick="window.location.href='editor.html'">Editor</button>
 
-On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the currently selected text.
-
 </script>
 
 <div class="container">
@@ -62,47 +60,51 @@ On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the curre
 		<div class="full column" id="main_body">
 		</div>
 	</div>
-	<div class="row"> 
-		<div class="full column" id="saveAndLoad">
-      <label style="display:inline">LOAD</label>
-      <select id="loadMenu">
-        <option>default</option>
-      </select>  
-	    <button id="saveBtn" class="button-primary" style="margin-left:3em">save</button>
+	
+	<div id="whole_editor_container">
+		<div class="row"> 
+			<div class="full column" id="saveAndLoad">
+		  <label style="display:inline">LOAD</label>
+		  <select id="loadMenu">
+			<option>default</option>
+		  </select>  
+			<button id="saveBtn" class="button-primary" style="margin-left:3em">save</button>
 
-      <span style="display:inline-block; width:5em">&nbsp;</span>
-      <label style="display:inline">MIDI Output</label>
-      <select id="midiMenu"></select>
-      
+		  <span style="display:inline-block; width:5em">&nbsp;</span>
+		  <label style="display:inline">MIDI Output</label>
+		  <select id="midiMenu"></select>
+	  
+			</div>
 		</div>
-	</div>
 
-	<div class="row">
-		<div class="one-half column">
-			<h4>Grammar:</h4>
-			<textarea id="peged"> 
-      </textarea>
-			<div id="peg_msg"></div>
+		<div class="row">
+			<div class="one-half column">
+				<h4>Grammar:</h4>
+				<textarea id="peged"> 
+		  </textarea>
+				<div id="peg_msg"></div>
+			</div>
+			<div class="one-half column">
+				<h4>Input:</h4>
+				<code>Ctrl-Enter</code> or <code>Cmd-Enter</code> to parse the currently selected text:
+
+	<textarea id="ed"></textarea>
+
+				<div id="ed_msg"></div>
+				<hr/>
+				<button class="button-primary" id="ed_start">Start</button>
+				<button class="button-primary" id="ed_stop">Stop</button>
+				<h4>Output:</h4>
+				<div id="output"></div>
+				<hr/>
+			</div>
 		</div>
-		<div class="one-half column">
-			<h4>Input:</h4>
-
-<textarea id="ed"></textarea>
-
-			<div id="ed_msg"></div>
-			<hr/>
-			<button class="button-primary" id="ed_start">Start</button>
-			<button class="button-primary" id="ed_stop">Stop</button>
-			<h4>Output:</h4>
-			<div id="output"></div>
-			<hr/>
-    	</div>
 	</div>
 </div>
 
 
-
 <script>
+
 var ed_text = [
   '@loop(',
   '	@iter (0.01 0.2 0.01) @hat-note',
@@ -151,7 +153,17 @@ var peg_text = [
 ].join('\n')
 
 var body = document.getElementById('sourcetext').innerText;
+
+if(! /chrom(e|ium)/.test(navigator.userAgent.toLowerCase())){	
+	body += '### The editor does not work in your browser, try using [Chrome](www.google.ca/chrome).';
+	$("#whole_editor_container").hide();
+	
+	
+}
+
 document.getElementById('main_body').innerHTML = marked(body);
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -255,6 +267,8 @@ if( WorkshopStorage.values.lastSavedState.grammar !== null ) {
   peged.setValue( peg_text ) 
   ed.setValue( ed_text )
 }
+
+
 
 </script>
 
