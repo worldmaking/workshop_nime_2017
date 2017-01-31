@@ -25,8 +25,10 @@
 
 <script src="js/big.min.js"></script>
 <script src="js/gibberish.min.js"></script>
+<script src='js/midi.js'></script>
 <script src="js/iclc.js"></script>
 <script src="js/storage.js"></script>
+
 
 <!-- Load the dynamic version of hoodie.js that includes all the plugin code-->
 <!--<script src="/_api/_files/hoodie.js"></script>-->
@@ -67,6 +69,11 @@ On the input window, pressing `Ctrl-Enter` or `Cmd-Enter` will trigger the curre
         <option>default</option>
       </select>  
 	    <button id="saveBtn" class="button-primary" style="margin-left:3em">save</button>
+
+      <span style="display:inline-block; width:5em">&nbsp;</span>
+      <label style="display:inline">MIDI Output</label>
+      <select id="midiMenu"></select>
+      
 		</div>
 	</div>
 

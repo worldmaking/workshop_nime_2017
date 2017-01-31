@@ -173,7 +173,7 @@ CodeMirror.defaults.mode = "local";
 // Gibberish:
 // http://charlie-roberts.com/gibberish/
 //////////////////////////////////////////////////////////////////////////////////////////
-
+MIDI.init()
 Gibberish.init();  
 Gibberish.Time.export();
 Gibberish.Binops.export();
