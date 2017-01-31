@@ -1237,56 +1237,65 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 			
 			
 			// [pitch, velocity, channel, "@note-on"]
-			case "@note-on":
+			case "@note-on": {
 				var chan = +this.stack.pop();
 				var vel = +this.stack.pop();
 				var pitch = +this.stack.pop();
 				
 				// send noteon pitch vel chan
-				if (MIDI) MIDI.send( [0x90+chan,pitch,vel], 0 );
-				
-				break;
+				if (MIDI) {
+					MIDI.send( [0x90+chan,pitch,vel], 0 );
+				}
+			}	
+			break;
 				
 			// [pitch, velocity, channel, "@note-off"]
-			case "@note-off":
+			case "@note-off": {
 				var chan = +this.stack.pop();
 				var vel = +this.stack.pop();
 				var pitch = +this.stack.pop();
 				
 				// send noteoff pitch vel chan
-				if (MIDI) MIDI.send( [0x80+chan,pitch,vel], 0 );
-				
-				break;
+				if (MIDI) {
+					MIDI.send( [0x80+chan,pitch,vel], 0 );
+				}
+			}
+			break;
 			
 			// [pitch, velocity, channel, duration, "@note"]
-			case "@note":
+			case "@note": {
 				var dur = +this.stack.pop();
 				var chan = +this.stack.pop();
 				var vel = +this.stack.pop();
 				var pitch = +this.stack.pop();
 				
 				// send noteon pitch vel chan
-				if (MIDI) MIDI.send( [0x90+chan,pitch,vel], 0 );
+				if (MIDI) {
+					MIDI.send( [0x90+chan,pitch,vel], 0 );
 				
-				// schedule noteoff later:
-				var s = sequencers[this.pq];
-				if (s == undefined) {
-					break;
-				}	
-				s.fork([pitch, 0, chan, "@note-off"], this.t + dur * this.rate, this);
-				
-				break;
+					// schedule noteoff later:
+					var s = sequencers[this.pq];
+					if (s == undefined) {
+						break;
+					}	
+					s.fork([pitch, 0, chan, "@note-off"], this.t + dur * this.rate, this);
+				}				
+			}
+			break;
 					
 			// [controller, value, channel, "@cc"]
-			case "@cc":
+			case "@cc": {
 				var chan = +this.stack.pop();
 				var value = +this.stack.pop();
 				var controller = +this.stack.pop();
 				
 				// send cc controller value chan
-				if (MIDI) MIDI.send( [0xB0+chan,controller,value], 0 );
+				if (MIDI) {
+					MIDI.send( [0xB0+chan,controller,value], 0 );
+				}
 				
-				break;
+			}
+			break;
 			
 			// Built-in sounds
 			
