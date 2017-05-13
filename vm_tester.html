@@ -38,7 +38,12 @@ img { width: 100%; max-width: 100%; }
 	<div class="row" style="margin-top: 5%">
 		<div class="full column" id="main_body">
 
-<textarea class="vm">["boo", "@print"]</textarea>
+<textarea class="vm">[{x:1}, "@print"]</textarea>
+
+<textarea class="vm">[1, "@print", 1, "@wait", 2, "@print"]</textarea>
+
+<textarea class="vm">["@loop", ["t", "@print", 1, "@wait"]]</textarea>
+
 
 		</div>
 	</div>
@@ -64,32 +69,51 @@ img { width: 100%; max-width: 100%; }
 <script src="js/ash.js"></script>
 
 <script>
+
+// For every vm class object (typically a textarea) on the page,
+// assign event handlers to trigger the code in a VM
 $(".vm").each(function() {
-	$(this).keyup(function() { vm_execute(this); });
-	$(this).focus(function() { vm_execute(this); });
+	$(this).keyup(function() { vm_execute_element(this); });
+	$(this).focus(function() { vm_execute_element(this); });
 	$(this).after('<code class="result"></code>');
-	//vm_execute(this, true);
+	//vm_execute_element(this, true);
 });
 
 
 var options = {};
 
+const last = a => a[a.length - 1];
+
 var scheduler_lib = {
     "@loop": proc => {
-      const { operations, error } = proc
-      const pattern = operations.pop()
-      if (isArray(pattern)) vm.fork(null, proc, ["@forever", pattern])
-      else error("@loop", ERR_EXPECT_PATTERN, pattern)
+		const { operations, error } = proc;
+		const pattern = operations.pop();
+		if (Array.isArray(pattern)) {
+			vm.fork(null, proc, ["@forever", pattern]);
+		} else { 
+			error("@loop", ERR_EXPECT_PATTERN, pattern);
+		}
+    },
+    "@forever": ({ operations, error }) => {
+		const pattern = last(operations);
+		if (Array.isArray(pattern) && pattern.length) {
+			operations.push("@forever")
+			operations.push(pattern)
+		} else {
+			error("@forever", ERR_EXPECT_PATTERN, pattern);
+		}
+	},
+    "@wait": proc => {
+    	proc.wait(Math.abs(Number(proc.stack.pop())))
     },
     "@fork": proc => {
-      const { operations, error } = proc
-      let pattern = operations.pop()
-
-      if (isArray(pattern)) {
-        vm.fork(null, proc, pattern)
-      } else {
-        error("@fork", ERR_EXPECT_PATTERN, pattern)
-      }
+		const { operations, error } = proc
+		let pattern = operations.pop()
+		if (Array.isArray(pattern)) {
+			vm.fork(null, proc, pattern)
+		} else {
+			error("@fork", ERR_EXPECT_PATTERN, pattern)
+		}
     },
     "@spawn": proc => {
       const { stack, operations, error } = proc
@@ -97,7 +121,7 @@ var scheduler_lib = {
       let pattern = operations.pop()
       if (!isString(name)) {
         error("@spawn", ERR_EXPECT_STRING, name)
-      } else if (!isArray(pattern)) {
+      } else if (!Array.isArray(pattern)) {
         error("@spawn", ERR_EXPECT_PATTERN, pattern)
       } else {
         vm.stop(name)
@@ -116,27 +140,45 @@ var debug_lib = {
     },
 }
 
-function vm_execute(element, noplay) {
-	var input = $(element);
-	var code = input[0].value;
-	var output = $(element).next( ".result" );
-	var result = code;
+// this JSON parser won't barf at unquoted keys like { x: 1 }
+function json_parse_relaxed(s) {
+	return JSON.parse(
+		s.replace(/(['"])?([a-z0-9A-Z_]+)(['"])?:/g, '"$2": ')
+	);
+}
+
+var vm = new VM();
+vm.addCommands(scheduler_lib);
+vm.addCommands(debug_lib);
+
+var requestInterval = function(a,b){var c=Date.now,d=window.requestAnimationFrame,e=c(),f,g=function(){c()-e<b||(e+=b,a());f||d(g)};d(g);return{clear:function(){f=1}}}//callback,delay
+
+requestInterval(function() {
+	vm.resume(1);
+}, 1000);
+
+// element is the source html element
+function vm_execute_element(element, noplay) {
+	var input_element = $(element);
+	var code = input_element[0].value;
+	var output_element = $(element).next( ".result" );
+	var result = "";
 	try {
-	
+		// first convert the code into 
+		var list = json_parse_relaxed(code);
+		
+		
+		vm.run(json_parse_relaxed(code));
+		//vm.run(JSON.parse(code));
+		//vm.resume();
+		
+		// show it:
+		output_element.text(JSON.stringify(list));
+		
 	} catch(ex) {
 		//console.log(ex.message);
-		result = ex.message;
+		output_element.text(ex.message);
 	}
-	console.log("exec");
-	
-	var vm = new VM();
-	vm.addCommands(scheduler_lib);
-	vm.addCommands(debug_lib);
-
-	vm.run(JSON.parse(code));
-	vm.resume();
-	
-	output.text(result);
 }
 
 </script>

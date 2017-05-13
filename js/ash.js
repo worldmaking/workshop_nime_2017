@@ -146,10 +146,11 @@ class Process {
 	wait (time) { this.time += this.rate * time; }
 	
 	// run all operations until time is reached
-	resume (time = Infinity, limit = 10000) {
+	resume (t = Infinity, limit = 10000) {
 		const isProgram = Array.isArray;
 		const { operations, commands } = this;
-		while (--limit > 0 && this.time <= time && operations.length) {
+		//console.log("resume", this.time, t);
+		while (this.time <= t && operations.length && --limit > 0) {
 			//this.step(commands);
 			if (operations.length) {
 				const instr = operations.pop();
@@ -167,6 +168,7 @@ class Process {
 				} else if (isCommand(instr)) {
 					const cmd = commands[instr];
 					if (typeof cmd === "function") {
+						//console.log("run", instr);
 						cmd(this);
 					} else {
 						this.error("step > ", ERR_INSTR_NOT_FOUND, instr);
@@ -199,6 +201,7 @@ class VM {
 		}
 		//this.bpm = 100;
 		//this.bpm2bpa = 1./(60*sr); // multiplier to convert bpm to beats per audio sample
+		this.name = uid("vm-");
 		this.time = 0;
 		this.procs = [];	// priority list of Processes, first due at top of stack
 		this.procsByName = {};
@@ -227,7 +230,7 @@ class VM {
 	// Create a new process
 	fork (name, parent, program, delay = 0, rate) {
 		const time = this.time + delay;
-		// if has parent and no rate, try to use it"s rate
+		// if has parent and no rate, try to use its rate
    		if (!rate && parent) rate = parent.rate;
    		// if has parent try to use it's context
     	const context = parent ? parent.context || parent : undefined;
@@ -260,21 +263,23 @@ class VM {
 	}
 	
 	// run the vm for the given amount of time (Infinity if not specified)
-	resume (dur = Infinity, limit = 10000) {
+	resume (dur = Infinity, limit = 10) {
 		const { procs } = this;
-		const nextTime = this.time + dur
+		const nextTime = this.time + dur;
+		//console.log("nextTime", nextTime, this.at(procs));
 		if (procs.length > 0) {
-			while (--limit > 0 && procs.length && this.at(procs) <= nextTime) {
+			while (procs.length > 0 && this.at(procs) < nextTime && --limit) {
 				const proc = procs.pop();
-				const t = procs.time;
-				if (proc.resume(this.commands, t)) {
+				const t = proc.time;
+				if (proc.resume(t)) {
 		  			// the proc has more operations, re-schedule
-		  			this.insert(proc, this.procs)
+					this.insert(proc, this.procs);
 				} else {
 		  			//if (this.onended) this.onended({ proc, time: this.time })
 				}
 				this.time = t;
 			}
+			
 			if (limit == 0) {
 				console.log("runaway loop detected in VM");
 			}
@@ -284,13 +289,15 @@ class VM {
 		
 		//console.log("procs:", procs.length, this.at(procs), this.time);
 		
+		console.log("time", this.time);
+		
 		return procs.length > 0;
 	}
 	
 	// get time of the next process
 	at (procs) {
-	  const len = procs.length
-	  return len ? procs[len - 1].time : Infinity
+		const len = procs.length
+		return len ? procs[len - 1].time : Infinity
 	}
   	
   	// The stop function can stop a proccess by name or by object
