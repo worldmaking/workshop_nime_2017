@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Live Code a Language as Instrument</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="css/normalize.css">
+<link rel="stylesheet" href="css/skeleton.css">
+<link rel="stylesheet" href="css/codemirror.css">
+<link rel="stylesheet" href="css/github.min.css">
+<style>
+/* see http://getskeleton.com/ */
+html { font-size: 50%; } 
+table { width:100%; }
+
+.show { border: 1px dashed grey; }
+
+.pane {
+	padding: 0px;
+	margin 0px;
+	display: inline-block;
+}
+
+.half {	
+	width: 49%;
+}
+
+.full {
+	width: 99%;
+}
+
+</style>
+
+<script src="js/jquery.min.js"></script>
+<script src="js/marked.js"></script>
+<script src="js/highlight.min.js"></script>
+<script src="js/hljs/javascript.min.js"></script>
+<script src="js/peg.min.js"></script>
+<script src="js/pegjs.pegjs.js"></script>
+<script src="js/codemirror.min.js"></script>
+<script src="js/mode/pegjs.min.js"></script>
+<script src="js/big.min.js"></script>
+<script src="js/gibberish.min.js"></script>
+<script src='js/midi.js'></script>
+<script src="js/storage.js"></script>
+</head>
+<body>
+
+<div class="container">
+	<div class="row" style="margin-top: 5%">
+		<div class="full column show" id="main_body">
+		
+		<section class="pane half show" id="grammar_pane">
+		Grammar
+		<div class="show">editor</div>
+		</section>
+		
+		<section class="pane half show" id="input_pane">
+		Inputs
+		<div class="show">editor</div>
+		</section>
+		
+		</div>
+	</div>
+</div>
+
+<script>
+
+</script>
+</body>
+</html>

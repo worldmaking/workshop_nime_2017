@@ -458,9 +458,14 @@ window.seq.clear = function() {
 		sequencers[k].disconnect();
 		delete sequencers[k];
 	}
+	console.log("clear spawns");
 	spawns = {};
 	
-	if (MIDI) MIDI.send([0x7B, 0], 0);
+	try {
+		if (MIDI) MIDI.send([0x7B, 0], 0);
+	} catch (e) {
+		console.log(e);
+	}
 }
 
 // triggered by the onclick of an html element
@@ -490,6 +495,8 @@ window.seq.play_element_text = function(element) {
 // if name didn't exist, create a new one.
 // if name already exists, replace score. If no score, terminate the sequencer.
 window.seq.define = function(name, score) {
+	
+	//console.log("define", name);
 	
 	// sync this:
 	cq.cmds.push(function() {
@@ -835,12 +842,16 @@ Q.prototype.step = function() {
 					console.error("spawn body must be a pattern (an array)");
 					break;
 				}
+				
+				
 				// find parent PQ:
 				var s = sequencers[this.pq];
 				if (s == undefined) {
 					console.error("can't spawn, can't find sequencer", this.pq);
 					break;
 				}	
+				
+				
 				
 				// does it already exist?
 				var loop = spawns[name];
@@ -853,12 +864,12 @@ Q.prototype.step = function() {
 					s.fork(loop, this.t, this);
 				} else {
 				
-					//console.log("replace", name, loop);
+					//console.log("replace", name, loop.join(""));
 					// nothing yet
 					var dst = loop[1];
 					dst.length = 0;
 					dst.push.apply(dst, patt);
-					//console.log("replace", name, loop);
+					console.log("replace", name, loop.join(""));
 				}
 				
 				// do it:
@@ -929,6 +940,7 @@ Q.prototype.step = function() {
 			
 					// push instruction again (the loop flow)
 					this.todo.push(item);
+					//console.log("pushing loop body", patt.join(""));
 					// push content of instruction (the loop body)
 					this.todo.push(patt);
 				}		
@@ -1403,6 +1415,7 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 			this.stack.push(item);
 		}
 	} else {
+		console.log("done");
 		return true;
 	}
 }

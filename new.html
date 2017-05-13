@@ -1,0 +1,1553 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Live Code a Language as Instrument</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="css/normalize.css">
+<link rel="stylesheet" href="css/skeleton.css">
+<link rel="stylesheet" href="css/codemirror.css">
+<link rel="stylesheet" href="css/github.min.css">
+<style>
+/* see http://getskeleton.com/ */
+html { font-size: 50%; } 
+table { width:100%; }
+img { width: 100%; max-width: 100%; }
+/* tabs */
+.tab.hidden { display: none; }
+.tab.active { display: block; }
+.input { 
+	min-height: 1em; width:50%; max-width: 50%; 
+	font-family: monospace;
+}
+.result { 
+	float: right;  
+	width:45%; max-width: 45%; padding: 1%; 
+	background: #eee; 
+	word-wrap: break-word; 
+	white-space: pre-wrap;       /* css-3 */
+	white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+	white-space: -pre-wrap;      /* Opera 4-6 */
+	white-space: -o-pre-wrap;    /* Opera 7 */
+}
+</style>
+</html>
+<body>
+<div class="container">
+	<div class="row" style="margin-top: 5%">
+		<div class="full column" id="main_body">
+			<h1>Live Code a Language as Instrument</h1>
+			<div id="menu"></div>
+		</div>
+	</div>
+</div>
+
+<script src="js/jquery.min.js"></script>
+<script src="js/marked.js"></script>
+<script src="js/highlight.min.js"></script>
+<script src="js/hljs/javascript.min.js"></script>
+<script src="js/peg.min.js"></script>
+<script src="js/pegjs.pegjs.js"></script>
+<script src="js/codemirror.min.js"></script>
+<script src="js/mode/pegjs.min.js"></script>
+<script src="js/big.min.js"></script>
+<script src="js/gibberish.min.js"></script>
+<script src="js/midi.js"></script>
+
+<!-- Page section content in Markdown: -->
+<script type="markdown" id="introduction" data-title="Introduction">
+
+> In this workshop participants will design and develop a idiosyncratic (perhaps even esoteric) language for live coding. These languages will be designed and run in a readily-accessible browser-based code editor, using open-source software we provide. The workshop will give a gentle introduction to the construction of grammars for parsing, using friendly browser-based libraries, with which participants will design their own mini-languages for defining musical patterns. No experience in any of these specific technologies is necessary. However, some programming experience will be helpful. An open-source browser-based editing environment and support library will be provided to participants. This environment leverages the codemirror and peg.js projects, and can dynamically evaluate code to communicate via websockets with other platforms for generating audiovisual content. We will reserve time for participants to experiment with other languages created in the workshop, so that they can obtain feedback and inspiration from each other. Participants will leave with the knowledge required to continue development of their language on their own.
+
+We're going to design languages for live coding. We don't have much time, so they're going to have to be simple, but that doesn't mean they can't be unusual ([for inspiration, look at this list of esoteric languages here](https://esolangs.org/wiki/Language_list)). Our languages are going to be input as raw text, and our job is to build the parser that can understand this text. Parsing is the general problem of turning raw text into meaningfully-structured data and/or actions, such as sonic events. 
+
+We're going to do most of this using web-based technologies, supported by JavaScript. For example, grammars will be implemented using the [PEG.js](http://pegjs.org) library, the text editor uses the [CodeMirror](http://codemirror.net/) library, our example sounds are generated from the [Gibberish](http://www.charlie-roberts.com/gibberish/) library, etc. -- but you don't really need to know all of this, as they're already built-in to our workshop pages. One good thing though is that you can take your languages with you -- the grammars are designed for [Peg.js](http://pegjs.org/online) but follow a more general formalism that can be embedded in other places and systems.
+
+As language creators, we need to decide what kinds of text fragments will turn into what kinds of actions. We need to know:
+
+1. **What kinds of text fragments can we recognize?** We'll look at a variety of examples. We can start by [learning about Parsing Expression Grammars with our tutorial here](#section-tutorial), and [elsewhere](https://en.wikipedia.org/wiki/Parsing_expression_grammar)
+
+2. **What kinds of actions can we make?** For this workshop, the kinds of actions we can make are instrument note triggers, instrument parameter changes, scheduling of events, and some other things. We can learn about what kinds of things we can generate by [looking at our target language here](#section-vm).
+	
+3. **How to specify the mapping between text and action?** We'll work on new mappings by live coding in [the editor](#section-editor)
+
+
+<!--
+**Workshop ICLC 2016:**
+
+<div class="iframe-container-16x9">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/3T8MrcPQ9HY" frameborder="0" allowfullscreen></iframe>
+</div>
+-->
+
+---
+
+@Copyright 2017 Graham Wakefield & Charlie Roberts
+
+</script>
+
+<!-- Page section content in Markdown: -->
+<script type="markdown" id="tutorial" data-title="Parsing Tutorial">
+**In any of the examples below, you can edit the input text and see the output immediately.**
+
+---
+
+## The most common grammar concepts
+
+We write grammars as a set of pattern-based rules. A rule has: 
+
+- a **name**, so that you can refer to it elsewhere, 
+- a **pattern**, which defines what kinds of text it can recognize,
+- an optional **action**, which defines what is returned when a rule applies.
+
+The simplest grammar has only one rule, and the simplest kind of rule looks like this:
+
+```peg
+start = "hello"
+```
+
+Here `start` is the rule's name, and `"hello"` is the pattern it recognizes. In this case it will **match** the input only if the input has exactly the word *hello* (and nothing else). That is, if you give it the input string hello it will output "hello". But if you give it any other input string, like bye, it will result in an error like *Expected "hello" but "b" found.* Even an extra space or fullstop after the *hello* will break it. Try it:
+
+<textarea class="input">hello</textarea>
+
+Parsing grammars are often used to more than just *match* an input; they become really powerful when they do some kind of **translation** of the input. This generally means *modifying what a rule returns*. The concept of *modifying what a rule returns* is achieved through **actions**. Actions redefine what the rule returns when it matches input (rather than just returning the input itself). Actions are wrapped in ```{``` and ```}``` curly parentheses, and should contain a ```return``` statement to specify what is returned. For example, we could add an action to our parser to return our input in a different language:
+
+```peg
+start = "hello" { return "bonjour"; }
+```
+
+<textarea class="input">hello</textarea>
+
+When considering a parser as a translator like this (sometimes also known as a "transpiler"), the language recognized and translated from is the **source language**, and the language produced as a result is the **target language**. We're going to be inventing new mini-languages for live coding as our source languages, and we're going to use a simple list-based instruction set for making sounds, loops, and so on as our target language. 
+
+---
+
+These are the basics. The rest is just learning how these can get more expressive. For example, the patterns of a rule can include more than just strings of text; they can have sequences, alternate options, optional items, and most importantly, they can refer to other rules. And as we shall see later, what goes between the ```{``` and ```}``` of an action is actually a fragment of Javascript code. That means we can do all kinds of interesting transformations in our translations.
+
+---
+
+### This then that (sequence)
+
+There are only a handful of basic concepts used in the design of a rule's pattern. Let's look at the most common ones.
+
+The simplest concept is of the *sequence of items*. And to specify this concept in a pattern, we just put each of the items in the pattern, with spaces between. For example, we could have considered our match of ```hello``` as matching a sequence of characters, and written it as follows. It functions in exactly the same way:
+
+```peg
+start = "h" "e" "l" "l" "o"
+```
+
+<textarea class="input">hello</textarea>
+
+### This or that (alternates)
+
+Grammars would be pretty uselessly inflexible if they only recognized one thing. To make flexibility we have a few options. For example, to recognize one of two words, we could use the ```/``` alternate symbol:
+
+```peg
+start = "hello" / "bye"
+```
+
+<textarea class="input">hello</textarea>
+
+<textarea class="input">bye</textarea>
+
+*Choice is ordered*, which is important. If the first of a set of alternatives matches, the others will be ignored. It can be important therefore to list your alternatives with the most specific/complex first, the most general/simple last. As a simple example, ```"a" / "aa"``` will never select the second option, as the first one would have been valid. 
+
+Back to our grammar above, the problem is, this can only recognize the words we defined in the grammar. What if we wanted to recognize any old word (even nonsense and imaginary ones)? Well, remembering that we can split a word into a sequence of letters, let's simplify the problem to recognizing any letter. We could start with something like this:
+
+```peg
+letter = "a" / "b" / "c" / "d" / "e"
+```
+
+...and so on. Didn't want to write all 26 letters. 
+
+### One of these (sets and ranges)
+
+Luckily, there's a simple way to express a *set* of characters. It means, match any one of the items in the set. Sets are delimited by ```[``` and ```]``` square brackets like this:
+
+```peg
+letter = [abcdefghijklmnopqrstuvwxyz]
+```
+
+It's still a bit of a mouthful, so there's also a simpler way to express a *range* of characters, like this:
+
+```peg
+letter = [a-z]
+```
+
+<textarea class="input">a</textarea>
+
+A set can contain several ranges and other characters, for example like thisrs, like this:
+
+```peg
+letter = [a-z] / [A-Z] / "@"
+```
+
+But this can be even more simply written as:
+
+```peg
+letter = [a-zA-Z@]
+```
+
+<textarea class="input">A</textarea>
+
+By the way, there's also an inverse set, indicated via ```^```:
+
+```peg
+nonletter = [^a-zA-Z]
+```
+
+### One or more
+
+Now to make a word, we can use our letter rule, and we want to say that a word has *one or more* letters. The *one or more* concept is expressed by adding a ```+``` symbol to the end of the pattern, like this:
+
+```peg
+word = [a-zA-Z@]+
+```
+
+<textarea class="input">hello</textarea>
+
+There's also a *zero or more* concept, which is expressed by adding ```*``` instead. We'll use that a bit later.
+
+### Use a rule in many places
+
+Since we'd already defined what a letter is, why not re-use it? Our grammars can easily use rules inside other rules, and this can make things easier to read, more flexible, and eventually also more powerful:
+
+```peg
+word = letter+
+letter = [a-zA-Z@]
+```
+
+<textarea class="input">hello</textarea>
+
+All this means is that to match the ```word``` rule, we have to match the ```letter``` rule, one or more times. Simple!
+
+So how about a sentence? A sentence has one or more words, so we can use the ```+``` concept again. 
+
+But words are separated by spaces. We can take a first stab at this by adding spaces to the ends of our words, like this:
+
+```peg
+sentence = word+
+word = letter+ space
+letter = [a-zA-Z@]
+space = " "
+```
+
+To match the ```word``` rule here means you must find *one or more* ```letters```, followed by a ```space```. 
+
+<textarea class="input">live coding</textarea>
+
+We have a problem though. Given an input string ```"live coding"```, our grammar can match up to ```"live "``` as a word. But it can't match ```"coding"``` as a word, since it doesn't have a space after it. And since that fails, the whole parse will fail too. Only if the input has an extra space at the end will the parse succeed.
+
+### Optional items
+
+To work around this, we can use the concept of an *optional item*, which won't fail the parse if it isn't present. We mark the space as optional by adding a ```?``` to it:
+
+```peg
+sentence = word+
+word = letter+ space?
+letter = [a-zA-Z@]
+space = " "
+```
+
+<textarea class="input">live coding</textarea>
+
+Similarly, we could add support for sentences that end in an optional full stop (period) like this:
+
+```peg
+sentence = word+ "."?
+word = letter+ space?
+letter = [a-zA-Z@]
+space = " "
+```
+
+<textarea class="input">live coding.</textarea>
+
+We might even want to be flexible and allow multiple spaces, in which case we can use the concept of *zero or more times*, which we indicate with ```*```:
+
+```peg
+sentence = word+ "."?
+word = letter+ space*
+letter = [a-zA-Z@]
+space = " "
+```
+
+<textarea class="input">live    coding.</textarea>
+
+To recap, ```?``` means zero or one, ```*``` means zero or more, and ```+``` means one or more.
+
+### Give me the raw text
+
+Now look at that output -- what a mess of square brackets, spaces, and empty lists! 
+
+Where did all those square brackets come from? Every time a *one or more* or *zero or more* rule is used, it will return a list of the items found. In our case for example this is happening in the ```letter+``` pattern. We probably don't want this much detail; we don't care about the individual letters, we just want the words as raw text. We can get that *just give it to me raw* concept by prefixing a pattern with a ```$```. (I don't know why a dollar means *just give it to me raw*.) For example:
+
+```peg
+sentence = word+ "."?
+word = $letter+ space*
+letter = [a-zA-Z@]
+space = " "
+```
+
+<textarea class="input">live coding.</textarea>
+
+This is better, but there are still lots of lists. Lists are also produced every time a *sequence* concept is used, such as ```*``` and ```+```. When a rule has a sequence of more than one element (like the ```space*``` in our ```word``` rule), it will also return a list to contain the elements' matches. 
+
+Actually we don't really care about the spaces, we only want to keep the words. Here's how:
+
+### Give me specific parts
+
+Keeping certain parts means throwing others away. It implies *modifying what a rule returns* via an action, but to do this we also need to identify what parts of a pattern we are interested in keeping (also known as captures). And in fact, quite often a lot of the syntax is irrelevant, so frequently our first stage in parsing is throwing away what we don't need and cleaning up what we have. We do this by giving them names (also known as labels) marked by the ```:``` colon character. For example, we can label the important part of our ```word``` pattern with the name "text" like this:
+
+```peg
+word = text:$letter+ space*
+```
+
+Once named, you can use this within the action like this:
+
+```peg
+sentence = word+ "."?
+word = text:$letter+ space* { return text; }
+letter = [a-zA-Z@]
+space = " "
+```
+
+I.e. the rule matches words and spaces, but only returns the word parts. 
+
+<textarea class="input">live coding.</textarea>
+
+We can ignore the full stop in the same way:
+
+```peg
+sentence = words:word+ "."? { return words; }
+word = text:$letter+ space* { return text; }
+letter = [a-zA-Z@]
+space = " "
+```
+
+The result looks immeasurably better:
+
+<textarea class="input">live coding.</textarea>
+
+Now you can easily imagine adding another rule for paragraphs as one or more sentences:
+
+```peg
+paragraph = sentence+
+sentence = words:word+ "."? space* { return words; }
+word = text:$letter+ space* { return text; }
+letter = [a-zA-Z@]
+space = " "
+```
+
+<textarea class="input">Live coding. For the win.</textarea>
+
+Notice how the paragraph and sentence structure is now encoded in the list structure.
+
+### Do some transformations on them
+
+In most languages, correct syntax doesn't guarantee correct semantics. **Moreover, colourless green ideas sleep furiously.** We might be able to *validate* the semantics from within the parser, but sometimes we need a secondary (or more) passes over the result. 
+
+We can do quite a lot of work directly in the grammar by defining more complex actions, which will be performed on the result of the match. This is where we can do extra cleaning up or transformations. Actions are just bodies of JavaScript. You can put pretty much any javascript in there:
+
+```peg
+paragraph = sentence+
+sentence = words:word+ "."? space* { return words.join(""); }
+word = text:$letter+ space* { return text[0].toUpperCase(); }
+letter = [a-zA-Z@]
+space = " "
+```
+
+<textarea class="input">Live coding. For the win.</textarea>
+
+
+```peg
+paragraph = sentences:sentence+ { return sentences.join(""); }
+sentence = words:word+ "."? space* { return words.reverse().join("|")+"!!!"; }
+word = text:$letter+ space* { return text.toUpperCase(); }
+letter = [a-zA-Z@]
+space = " "
+```
+
+<textarea class="input">I am calm. very calm.</textarea>
+
+### Except, unless, and anything
+
+Sometimes you have a pattern, but there are some exceptions you want to exclude from it. For example, we want to match a variable name, except if it a reserved keyword. In this case, the ```!``` **except** concept works for us:
+
+```peg
+// a var name is a word that is not a keyword
+varname = !keyword w:word { return w; }
+
+// these are not valid variable names:
+keyword = "evil" / "nasty"
+
+word = $letter+
+letter = [a-zA-Z@]
+```
+
+<textarea class="input">hello</textarea>
+
+Sometimes you want to capture *any character at all* so long as it isn't a parenthesis. The *any character at all* is represented by the humble dot ```.```:
+
+```peg
+// this will match absolutely any input
+anything = .*
+```
+
+<textarea class="input">whatever you want.</textarea>
+
+Plugging *anything* and *except* together turns out to be very handy for detecting nested structures, like quotes, brackets, etc: 
+
+```peg
+// every item is either a list or not-a-list
+item = list / nonlist
+
+// a list is several items wrapped in parentheses:
+list = "(" a:item* ")" { return a; }
+
+// a non-list is any run of characters except for parentheses:
+nonlist = $(!"(" !")" .)+
+```
+
+<textarea class="input">(x(xx)x(x(x))())</textarea>
+
+The terms can be flipped around to make an **unless-followed-by** concept:
+
+```peg
+// a statement is a word unless followed by a question mark:
+stat = $(word !"?")
+
+word = [a-z]+
+```
+
+<textarea class="input">what</textarea>
+
+These rules give some fun opportunities to make a grammar more context sensitive.
+
+---
+
+## Recap
+
+Concept											| Syntax 
+:--- 											| :---
+Exactly the text "abc"							| ```"abc"```
+A then B (sequence) 							| ```A B```
+A or B (ordered choice) 						| ```A / B```
+Optional A 										| ```A?```
+Zero or more A's (returns an array)				| ```A*```
+One or more A's (returns an array)				| ```A+```
+Any one of these characters						| ```[abcdefgABCDEFG]```
+ (or simply)									| ```[a-gA-G]```
+Any integer										| ```[0-9]```
+Any non-letter									| ```[^a-zA-Z]```
+Capture the raw text of the pattern	A			| ```$A```
+Capture A as ```a``` and B as ```b``` for the action | ```a:A b:B```
+Any character at all							| ```.```
+A so long as it is not also a B					| ```!B A```
+A so long as it *is* also a B					| ```&B A```
+A unless followed by B							| ```A !B```
+
+That's nearly all the important concepts. There's a handful of other trickier ones but we'll get to them if we need to. But really, nearly everything can be done with the above handful.
+
+---
+
+## Examples 
+
+
+### Space is time
+
+```peg
+start = (loop / beat)+
+
+loop = "[" b:beat+ "]" { return ["@loop", b]; }
+
+beat = rest / hat / snare / kick / conga1 / conga2 / tom
+
+// spaces create rests:
+rest = " " { return [0.25, "@wait"]; }
+
+// everything else is immediate:
+hat = "-" { return ["@hat"]; }
+snare = "o" { return ["@snare"]; }
+kick = "x" { return ["@kick"]; }
+conga1 = "n" { return [220, 0.5, "@conga-note"]; }
+conga2 = "u" { return [110, 1, "@conga-note"]; }
+tom = "^" { return [110, 1, "@tom-note"]; }
+```
+
+<textarea class="input">[x  o  ][-  - ][u   ][^- n     ]</textarea>
+
+Here's a Tidal-like concept in which loops have the same length, and the durations inside depend on the number of items in them:
+
+```peg
+start = (loop / item)+
+
+loop = "[" loop:item+ "]" _ {
+	// get duration from loop length:
+	var dur = 1/loop.length; 
+	// interleave loop with rests:
+	var result = [];
+	for (var item of loop) {
+		result.push(item);
+		result.push([dur, "@wait"]);
+	}
+	return ["@loop", result];
+}
+
+item = rest / hat / snare / kick / conga1 / conga2 / tom
+
+rest = " " { return []; }
+hat = "-" { return ["@hat"]; }
+snare = "o" { return ["@snare"]; }
+kick = "x" { return ["@kick"]; }
+conga1 = "n" { return [220, 0.4, "@conga-note"]; }
+conga2 = "u" { return [165, 0.4, "@conga-note"]; }
+tom = "^" { return [110, 0.6, "@tom-note"]; }
+
+// empty space:
+_ = [ \t\n\r]*
+```
+
+<textarea class="input">
+[x   --o    - ]
+[^  ^n u  u ]
+</textarea>
+
+### Musical notes
+
+This page can also make sound! Click on the input box below and it will trigger the text to be parsed; and the output in this case will generate a note at frequency 440Hz and amplitude value of 1:
+
+```peg
+start = "a4" { return [440, 1, "@pluck-note"]; }
+```
+
+<textarea class="input">a4</textarea>
+
+How about turning typical note names and chords, such as "c4", "Fbb5", etc. into MIDI equivalents, and then into Hz?
+
+First, here's how to convert a midi pitch into hz:
+
+```peg
+hz = note { return 440 * Math.pow(2, (+text() - 69)/12); }
+note = [0-9]+ { return +text(); }
+```
+
+<textarea class="input">69</textarea>
+
+But we don't need to worry about that, as we have a built-in function ```mtof()`` that can do it for us. Plug it together:
+
+```peg
+start = pitch:note { return [mtof(pitch), 1, "@pluck-note"]; }
+note = $[0-9]+
+```
+
+<textarea class="input">69</textarea>
+
+Or we could say notes by their name "a", "b", etc.:
+
+```peg
+start = pitch:note { return [mtof(pitch), 1, "@pluck-note"]; }
+note = "a" { return 69; } / "b" { return 71; } / "c" { return 60; }
+```
+
+<textarea class="input">a</textarea>
+
+Alternatively, here's a more compact and flexible way:
+
+```peg
+start = freq:hz { return [freq, 1, "@pluck-note"]; }
+hz = c:chroma { return mtof(c + 60); }
+
+chroma = c:[a-gA-G] { 
+    // return MIDI note offset from C:
+    switch(c.toUpperCase()) {
+    case "C": return 0; 
+    case "D": return 2; 
+    case "E": return 4; 
+    case "F": return 5; 
+    case "G": return 7; 
+    case "A": return 9; 
+    case "B": return 11; 
+    }
+}
+```
+
+<textarea class="input">a</textarea>
+
+We could add on the octave, as "a0", "c1", "b4" etc., and even accidentals:
+
+```peg
+start = freq:hz { return [freq, 1, "@pluck-note"]; }
+hz = c:chroma a1:accidental a2:accidental o:octave { return mtof(c + a1 + a2 + o); }
+
+chroma = c:[a-gA-G] { 
+    // return MIDI note offset from C:
+    switch(c.toUpperCase()) {
+    case "C": return 0; 
+    case "D": return 2; 
+    case "E": return 4; 
+    case "F": return 5; 
+    case "G": return 7; 
+    case "A": return 9; 
+    case "B": return 11; 
+    }
+}
+
+// sharps and flats
+accidental = a:[#b]? {
+    // return MIDI note offset:
+    switch(a) {
+    case "#": return +1;
+    case "b": return -1;
+    default: return 0;
+    }
+}
+
+octave = n:$("-"? [0-9]+)? { 
+	if (n) { 
+		// convert octave to MIDI note C:
+		return 12 + (+n) * 12; 
+	} else { 
+		// octave wasn't specified, default to C4:
+		return 60; 
+	}
+}
+```
+
+<textarea class="input">C3</textarea>
+
+
+And now for chords:
+
+```peg
+arpeggio = c:absolute_chord {
+	return ["@loop", [
+		[["@iter", c], "@random", "@pluck-note"],
+		0.25, "@wait",
+	]];
+}
+
+absolute_chord = base:note chord:chord_extended {
+	var result = [];
+    for (var e of chord) {
+    	result.push(mtof(base + e));
+    }
+    return result;
+}
+
+chord_extended = chord:chord variants:chord_variant* {
+	var last = chord[2];
+    for (var v of variants) {
+    	chord.push(last + v);
+    }
+    return chord;
+}
+
+chord_variant 
+	= "7" { return 3; }
+	/ "#7" { return 4; }
+	/ "b9" { return 6; }
+	/ "9" { return 7; }
+
+chord
+	= "min" { return [0, 3, 7]; }
+	/ "maj" { return [0, 4, 7]; }
+	/ "dim" { return [0, 3, 6]; }
+	/ "sus" { return [0, 5, 7]; } 
+	/ "aug" { return [0, 4, 8]; }
+	
+note = c:chroma a1:accidental a2:accidental o:octave { return c + a1 + a2 + o; }
+
+chroma = c:[a-gA-G] { 
+    // return MIDI note offset from C:
+    switch(c.toUpperCase()) {
+    case "C": return 0; 
+    case "D": return 2; 
+    case "E": return 4; 
+    case "F": return 5; 
+    case "G": return 7; 
+    case "A": return 9; 
+    case "B": return 11; 
+    }
+}
+
+// sharps and flats
+accidental = a:[#b]? {
+    // return MIDI note offset:
+    switch(a) {
+    case "#": return +1;
+    case "b": return -1;
+    default: return 0;
+    }
+}
+
+octave = n:$("-"? [0-9]+)? { 
+    if (n) { 
+        // convert octave to MIDI note C:
+        return 12 + (+n) * 12; 
+    } else { 
+        // octave wasn't specified, default to C4:
+        return 60; 
+    }
+}
+```
+
+<textarea class="input">Dbdim#7</textarea>
+
+---
+
+## Some common rules
+
+### Empty space
+
+Many grammars use the _ underscore character to identify areas of space, as it draws more attention to the other, more significant parts of patterns. (Except for languages in which space is really significant...). The following rules define optional and mandatory space, including tabs and newlines:
+
+```peg
+// optional space
+_ = [ \t\r\n]*
+
+// mandatory space
+__ = [ \t\r\n]+
+```
+
+For example:
+
+```peg
+start = _ ("a"+ __)+
+
+_ = [ \t\r\n]*
+__ = [ \t\r\n]+
+```
+
+<textarea class="input"> a  a  
+a aaa a  
+a  a 
+a a a   
+</textarea>
+
+### Numbers
+
+TL;DR: -- captures decimal numbers and converts to Javascript numbers:
+
+```peg
+number = "-"? (([0-9]+ "." [0-9]*) / ("."? [0-9]+)) { return +text(); }
+```
+
+<textarea class="input">0.4</textarea>
+
+Let's build that up. Here's a positive whole number:
+
+
+```peg
+positive_integer = [0-9]+ { return +text(); }
+```
+
+<textarea class="input">107</textarea>
+
+Supporting negative whole numbers too is easy:
+
+```peg
+integer = "-"? [0-9]+ { return +text(); }
+```
+
+<textarea class="input">-123</textarea>
+
+The use of ```text()``` is equivalent to wrapping ```$``` around the whole input -- i.e. it means give the entire input as raw text. The use of ```+``` is a cheap way of converting text into a javascript number.
+
+Here's a basic decimal:
+
+```peg
+decimal = "-"? [0-9]+ "." [0-9]+ { return +text(); }
+```
+
+<textarea class="input">3.141</textarea>
+
+However this fails for "1." and ".1", and "1". Here's a more robust version:
+
+```peg
+number = "-"? (([0-9]+ "." [0-9]*) / ("."? [0-9]+)) { return +text(); }
+```
+
+<textarea class="input">-.123</textarea>
+
+How about ratios? For this we need the parts so we can do the division:
+
+```peg
+ratio = a:$("-"? [0-9]+) "/" b:$("-"? [0-9]+) { return +a / +b; }
+```
+
+<textarea class="input">1/-10</textarea>
+
+Maybe want to add something special if b happens to be zero...
+
+### This is the end
+
+To detect the end of the entire input string, we can assert that there is nothing after it:
+
+```peg
+end_of_input = !.
+```
+
+To grab everything to the end of the input, just capture zero or more anythings (typically you want this as raw text):
+
+```peg
+rest_of_input = $.*
+```
+
+### LISP
+
+The Lisp programming language has one of the simplest grammars. Everything is a term, which could be a single word be a list of terms; lists are bounded by parentheses and their terms are separated by space characters, or can be empty. Four rules are enough to recognize this language and return its structure in nested arrays:
+
+```peg
+// an item can be followed by whitespace
+// which we ignore by using the action
+// the item itself could be a list or a word
+term "term" = body:(list / word) _ { return body; } 
+
+// a pattern is enclosed within parentheses
+// it could also be empty
+list "list" = "(" _ body:term* ")" { return body; }
+
+// a symbol must not contain parentheses nor whitespace
+// use the "$" to get the raw text
+word "word" = $[^() \t\n\r]+
+
+// white space is zero or more spaces or tabs (or newlines)
+_ "whitespace" = [ \t\n\r]*
+```
+
+<textarea class="input">(defun factorial (N)
+  (if (= N 1)
+      1
+    (* N (factorial (- N 1)))))
+</textarea>
+
+## Some common errors
+
+### First, getting better errors
+
+If you annotate a rule by putting a string after the rule name, then this string will be used in error reporting. 
+
+```peg
+myrule "myrule" = A B
+```
+
+This also lets the PEG.js parser know this is a likely location for errors (and it will suppress errors from any nested rules). Usually it's best to put these annotations on the lowest-level rules, so that errors become more localized. Definitely don't put them on your highest-level rules!
+
+### "Expected (something...) but end of input found"
+
+This means the grammar got to the end of the input without completing a rule. For example:
+
+```peg
+start = "hello"
+```
+
+<textarea class="input">hell</textarea>
+
+With grammars that have lots of rules it can be quite tricky to figure out where the problem is. Try changing the start rule and working up from smaller fragments to find out where it is breaking -- which rule isn't able to complete. And use the 'getting better errors' tip above to make the (something...) part of the error more helpful.
+
+#### "Expected end of input but (someting...) found"
+
+In this case, the grammar completely matched, but there were some extra text left over that couldn't be matched. The (something...) tells you what part of the input it gave up at. For example:
+
+```peg
+start = "hello"
+```
+
+<textarea class="input">hello!</textarea>
+
+One thing you can do is add an ```$.*``` to the end of the top-most rule, which will capture all the rest of the text to the end in a big string. That might help identify where it is going wrong.
+
+### "Infinite loop detected"
+
+It's really easy to make a grammar that can never terminate. Here's a failed attempt to match a string of one or more "a" characters:
+
+```peg
+// BAD!!!
+X = Y+
+Y = "a"*  
+```
+
+The problem here is that Y can match nothing (the empty string), since it can match zero or more of something, and X can match one or more of these Y's. That is, X can match one or more nothings. If you think about it, there are an infinite number of times you can match nothing. So X will keep on matching nothing until you run out of memory, and the parser will give up in a poof of ennui.
+
+All you need to do is make sure than under any array-like operation (i.e. any use of + or *), there is no expansion that can match an empty string (e.g. through the use of ? and *). 
+
+So the above grammar can be fixed simply by moving the zero-or-more up to the top:
+
+```peg
+X = Y*
+Y = "a"+ 
+```
+
+### "Left recursion detected"
+
+There's another common way to make a grammar that can't terminate. A really common example of this is handling math expressions. To match statements like "1", "1+2", "1+2+3" etc, it might be tempting to write this:
+
+```peg
+// BAD!!!
+Expression = Addition / Value
+Addition = Expression "+" Expression
+Value = [0-9]
+```
+
+The problem is that the Addition rule's first item is Expression, whose first item is Addition, and so on forever -- the parser will keep following this trail of links until it runs out of memory, and never finish its job. 
+
+An even simpler example:
+
+```peg
+StringOfAs = StringOfAs "a" / "a"
+```
+
+If you get the "Left recursion detected" error, look through each of your rules for their first (left-most) items, and make sure they can't resolve back to themselves. The math grammar above can be fixed by removing this feedback loop by changing the first item in the Addition rule as follows:
+
+```peg
+Expression = Addition / Value
+Addition = Value ("+" Expression)*
+Value = [0-9]
+```
+
+However note that the structure it returns will look different. We can use actions to reshuffle the parse tree into the format that we actually want.
+
+---
+
+### Language oriented programming
+
+This workshop is an example of [Language-oriented programming](https://en.wikipedia.org/wiki/Language-oriented_programming) (LOP); a style of computer programming in which, rather than solving problems in general-purpose programming languages, the programmer creates one or more domain-specific languages for the problem first, and solves the problem in those languages. 
+
+One way of thinking about how to design a language is to start from the result, and work back. The results are the kinds of things our engine can actually produce (or more accurately, the subset of these things that we are likely to want to produce). This way of thinking effectively means designing a collection of short-cuts, short-hands, macros, simple fragments that can expand into fully-specified events. 
+
+Though a grammar is defined top-down, it's usually easier to build & think about bottom up. How about coming up with a palette of interesting basic patterns or phrases, then starting to find ways to combine them via grammar abstractions?
+
+Sketching out a few examples of simple phrases or statements the grammar should understand (and what it should reject!) can help. 
+
+You can also think about it in a modular way: what types of things can be plugged into others. E.g., for the form "A + B" you might think of being able to plug numbers, words, and parentheses clauses in, e.g. "a + 1", "x + (y + z)", etc. The rules of the grammar identify things that can be plugged in, and what can be plugged into them. We make rules ("nonterminals") for several reasons:
+- the same sub-pattern can reappear in many different locations
+- to break up complex patterns into more digestible chunks, with helpful names
+- to identify points in the grammar at which structure can change
+
+Some live coding languages make an effort to use textual space in a temporally-meaningful way. In ixilang patterns, textual space maps directly onto sound. This works well because sound events are always a single character. To create a rest, insert a space character. The number of characters in a pattern is also the temporal length of the pattern. In Tidal, patterns have a loop length determined by context, which could be for example a couple of beats. By default, events within the pattern are distributed evenly in time, making it easy to create different subdivisions of a meter. Events are delimited by spaces (making them like words). In Gibber, a pattern includes two separate lists, one for the event data, the other for the timing of that data. However in some cases events can be single-characters, granting a mapping of space to time as with ixilang. How will you determine the timing of events in a pattern, and will it use character- and/or word-based spacing?
+
+</script>
+
+<!-- Page section content in Markdown: -->
+<script type="markdown" id="vm" data-title="Target Language">
+For the purposes of this workshop we have designed a target language that captures some essential concepts for a musical live coding context, such as playing notes and looping patterns. It is intentionally limited to make it fairly easy to learn, yet also intentionally designed to make it possible to express a wide variety of ideas. It is *not* designed to be succinct -- that's the job of the user-facing language you create! The target language is a bit like the instruction sequences real compilers use, in that it is a list of commands. However ours can also have nested structures as lists of lists. A simple example is a pattern that plays a note every beat:
+
+**Click on any of the code samples below to hear them!**
+
+```javascript
+["@loop", ["@pluck", [1, "@wait"]]]
+```
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+<div id="toc"></div>
+
+**Click on any of the code samples below to hear them!**
+
+## Sounds
+
+The VM comes with a small number of instruments to get things going. Here's a plucked string instrument. There are two ways to trigger it. You can use @pluck-note to set the frequency and amplitude for each note like this:
+
+```javascript
+[440, 1, "@pluck-note"]
+```
+```javascript
+[220, 0.25, "@pluck-note"]
+```
+Or you can set the frequency and amplitude as contextual variables, and just use @pluck to trigger using these values. This can allow a bit more flexibility in how these values are calculated:
+
+```javascript
+["@pluck"]
+```
+```javascript
+[[330, "@set-freq"], [0.5, "@set-amp"], "@pluck"]
+```
+There are also some percussion sounds, which either grab amplitude from the context (set using @set-amp), or specify it using the -note variants:
+
+```javascript
+[1, "@hat-note"]
+```
+```javascript
+[1, "@kick-note"]
+```
+```javascript
+[1, "@snare-note"]
+```
+
+```javascript
+[[1, "@set-amp"], "@hat"]
+```
+```javascript
+[[1, "@set-amp"], "@kick"]
+```
+```javascript
+[[1, "@set-amp"], "@snare"]
+```
+```javascript
+[4, "@repeat", [
+	[["@iter", [0.3, 1]], "@set-amp"], 
+	8, "@repeat", ["@hat", 0.125, "@wait"]
+]]
+```
+## Repetition and parallelism
+
+A list with several events normally happens at the same time:
+
+```javascript
+[
+	[220, "@set-freq"], "@pluck", 
+	[330, "@set-freq"], "@pluck"
+]
+```
+
+Unless you add a n,@wait:
+
+```javascript
+[
+	[220, "@set-freq"], "@pluck", 
+	1, "@wait",
+	[330, "@set-freq"], "@pluck"
+]
+```
+Here's how to do something a specific number of times:
+
+```javascript
+[
+	4, "@repeat", [ "@pluck", 0.25, "@wait" ]
+]
+```
+```javascript
+[
+	4, "@repeat", [ "@pluck", 0.25, "@wait" ],
+	[220, "@set-freq"], "@pluck"
+]
+```
+Here's how to do something forever:
+
+```javascript
+[
+	"@loop", [ "@pluck", 0.25, "@wait" ]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+Note that @loop will run the pattern that follows it *in parallel*, which means that you can keep on triggering more things after it. So it's easy to set up a bunch of parallel processes:
+
+```javascript
+[
+	"@loop", [ 0.5, "@kick-note", 2, "@wait" ],
+	"@loop", [ 0.3, "@hat-note", 0.4, "@wait" ],
+	"@loop", [ 550, 0.5, "@pluck-note", 0.6, "@wait" ],
+	"@loop", [ 330, 0.4, "@pluck-note", 0.2, "@wait" ],
+	"@loop", [ 110, 1, "@pluck-note", 12, "@wait" ]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+
+And to run something in parallel without looping it, just use @fork []:
+
+```javascript
+[
+	"@loop", [ 
+		"@kick", 
+		"@fork", [
+			0.25, "@wait", 
+			550, 1, "@pluck-note",
+			0.33, "@wait", 
+			660, 1, "@pluck-note"
+		],
+		1, "@wait"
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+
+This is also handy for setting up loops with different start times:
+
+```javascript
+[
+	"@loop", ["@kick", 1, "@wait"],
+	"@fork", [0.5, "@wait", 
+		"@loop", ["@hat", 1, "@wait"]
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+
+## Expressions
+
+Anywhere that a number would go, you can insert an expression. Here are some fun expressions.
+
+Here's picking a value at random from a list, instead of giving the freq and amp values as numbers:
+
+
+```javascript
+[
+	"@loop", [ 
+		["@pick", [330, 440, 550, 660]], 
+		["@pick", [1, 0.7, 0.4]],
+		"@pluck-note",
+		0.25, "@wait"
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+Here's alternating between a set of values in a list, one at a time:
+
+```javascript
+[
+	"@loop", [ 
+		["@iter", [330, 440, 550, 660]],
+		["@iter", [1, 0.7, 0.4]],
+		"@pluck-note",
+		0.25, "@wait"
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+Here's way to set the probability of something happening. Note that two lists have to be given after the "@chance"; either the first is run (if the chance happens), else the other one will be run. 
+
+```javascript
+[
+	"@loop", [
+		"@fork", [ 
+			0.1, 
+			"@chance",
+			["@snare"],
+			["@kick"]
+		],
+		"@hat", 0.25, "@wait"
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+
+If you don't care about the 'else' case, just put an empty list ```[]``` or ```null```. But you must put something, or else the virtual machine will get corrupted, and who knows what might happen.
+
+```javascript
+[
+	"@loop", [
+		"@fork", [ 
+			0.1, 
+			"@chance",
+			["@snare"],
+			[]
+		],
+		"@hat", 0.25, "@wait"
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+Another way of getting some randomness is to use the @rand (which generates a number between 0 and 1), @srand (which generates a number between -1 and 1), and n,@randi (which generates a number between 0 and n-1):
+
+```javascript
+[
+	"@loop", [ 
+		"@rand", "@set-amp",
+		"@pluck",
+		0.25, "@wait"
+	]
+]
+```
+```javascript
+[
+	"@loop", [ 
+		"@pluck",
+		[3, "@randi"], "@wait"
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+There are several basic math functions that can be used to map numbers into useful ranges. Note that most math functions require the arguments first, e.g. use ```[a,b,@+]``` to add a and b:
+
+```javascript
+[
+	"@loop", [ 
+		[[[4, "@randi"], 1, "@+"], 110, "@*"], "@set-freq",
+		"@pluck",
+		0.25, "@wait"
+	]
+]
+```
+```javascript
+[
+	"@loop", [ 
+		[["@srand", 10, "@*"], 110, "@+"], "@set-freq",
+		"@pluck",
+		0.25, "@wait"
+	]
+]
+```
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+## Get, set, and let
+
+The @set-freq etc. are really just examples of creating named values ("variables") that can be re-used again later. Actually you can use @set-*anything* to create whatever variables you like, and use @get-*anything* to retrieve them. Mainly this is useful when you want to re-use something a few times:
+
+```javascript
+[
+	"@loop", [ 
+		[[[4, "@randi"], 2, "@+"], 110, "@*"], "@set-f",
+		"@get-f", 0.6, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	]
+]
+```
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+By default @set-*anything* will apply globally, so you can modulate a parameter from one loop while using it in another:
+
+```javascript
+[
+	"@loop", [
+		[[[4, "@randi"], 2, "@+"], 110, "@*"], "@set-f",
+		1, "@wait"
+	],
+	"@loop", [ 
+		"@get-f", 0.6, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	]
+]
+```
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+If globalism isn't what you care for, you can make a name "local" to a particular loop by using @let-*anything*. Once you have @let- a variable in a particular @loop (or @fork) pattern, it will remain local to that pattern. Generally, use @let if you want some value that is only used within a pattern, and @set if you want something global. 
+
+```javascript
+[
+	"@loop", [
+		[[[4, "@randi"], 1, "@+"], 110, "@mul"], "@let-f",
+		"@get-f", 0.6, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	],
+	"@loop", [
+		[[[4, "@randi"], 5, "@+"], 110, "@mul"], "@let-f",
+		"@get-f", 1, "@pluck-note",
+		["@get-f", 1.5, "@mul"], 0.6, "@pluck-note",
+		0.25, "@wait"
+	]
+]
+```
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+One use for this is to repeatedly modify a value, such as for a counter, or a decay:
+
+```javascript
+[
+	"@loop", [
+		1, "@let-a",
+		8, "@repeat", [
+			"@get-a", "@snare-note",
+			0.25, "@wait",
+			["@get-a", 0.6, "@*"], "@set-a"
+		]
+	]
+]
+```
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+The only thing special about @set-freq is that the name "freq" is used by @pluck. That is, @pluck is equivalent to: ```["@get-freq", "@get-amp", "@pluck-note"]```. Similarly for @set-amp etc.
+
+## Independently parallel
+
+Say you want to be able to launch a loop, then let it keep running while you launch another. And say you want to redefine it while it plays, or stop it. To do that you need to name it. We can do that via "@spawn".
+
+```javascript
+[
+	"foo", "@spawn", [220, 0.5, "@pluck-note", 0.50, "@wait"],
+	"bar", "@spawn", [330, 0.5, "@pluck-note", 0.75, "@wait"],
+	3, "@wait",
+	"foo", "@spawn", [110, 0.5, "@pluck-note", 1, "@wait"]
+]
+```
+
+```javascript
+[
+	"foo", "@spawn", [440, 0.5, "@pluck-note", 0.5, "@wait"]
+]
+```
+
+```javascript
+[
+	"bar", "@spawn", [110, 0.5, "@pluck-note", 1, "@wait"]
+]
+```
+```javascript
+[
+	"foo", "@stop"
+]
+```
+
+```javascript
+[
+	"bar", "@stop"
+]
+```
+
+
+
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+```javascript
+[
+	"@loop",[
+		"@iter",[0.01,0.2,0.01],"@hat-note",
+		"@iter",[1,3],8,"@div","@wait"
+	],
+	"@loop",[
+		["@iter",[14,15,16,17,18],44,"@mul"],"@set-freq",
+		0.1,"@set-amp",
+		"@pluck",
+		"@pick",[5,7],32,"@div","@wait"
+	],
+	"@loop",[
+		["@iter",[16,6,15,5,10,4,12],44,"@mul"],"@set-freq",
+		1,"@pick",[2,3,5,6,5,6,5],"@div","@set-amp",
+		"@pluck",
+		"@iter",[5,1,9,1],32,"@div","@wait"
+	]
+]
+```
+
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+---
+
+## Sending out over a websocket
+
+There is also a command for sending data out over a websocket. By default the browser will try to connect to "ws://localhost:8080/", and if it can, it will use timing from the external source.
+
+```javascript
+[
+	"@loop", [
+		"pluck", "@iter", [["@iter", [440, 330]], 220, 165], "@ws-2",
+		0.25, "@wait"
+	],
+	"@loop", [
+		"@iter", ["kick", "snare"], "@ws-1",
+		0.75, "@wait"
+	]
+]
+```
+
+---
+
+## Reference
+
+Here are all the important concepts supported and how to format them in the target code:
+
+Concept 						| Format 
+:--- 							| :---
+Do nothing						| ```null```
+A pattern to do three things	| ```[first, second, third]```
+Wait for n beats 				| ```n, "@wait"```
+Repeat n times					| ```n, "@repeat", pattern-to-loop```
+Fork a pattern in parallel		| ```"@fork", pattern-to-play```
+Fork a pattern to loop forever	| ```"@loop", pattern-to-loop```
+Fork (or replace) a loop with a name | ```name, "@spawn", pattern```
+Stop a forked loop with a name 	| ```name, "@stop"```
+Pick random item to execute		| ```"@pick", pattern-of-items-to-pick-from```
+Cycle through items to execute	| ```"@iter", pattern-of-items-to-alternate```
+Conditional execution 			| ```condition, "@cond", executed-if-true, executed-if-false```
+Probabilistic execution			| ```probability, "@chance", executed-if-true, executed-if-false```
+Set beats per minute (global)	| ```n, "@bpm"```
+Get current time (in beats)		| ```"@time"```
+Duplicate item (so you can use it twice) | ```item, "@dup"```
+Print to console				| ```message, "@print"```
+Get value of *x*				| ```@get-x```
+Set value of *x* (global)		| ```@set-x```
+Set value of *x* (local)		| ```@let-x```
+
+Some named values have special meaning; "freq" and "amp" are used by the sound instruments, for example.
+
+"@rate"
+
+Math / logic concept 			| Format 
+:--- 							| :---
+random integer from 0 to n-1	| ```n, "@randi"```
+random number from 0 to 1		| ```n, "@rand"```
+random integer from -1 to 1		| ```n, "@srand"```
+a + b							| ```a, b, "@add"``` or ```a, b, "@+"```
+a - b							| ```a, b, "@sub"``` or ```a, b, "@-"```
+a * b							| ```a, b, "@mul"``` or ```a, b, "@*"```
+a / b							| ```a, b, "@div"``` or ```a, b, "@/"```
+a % b	 (Euclidean)			| ```a, b, "@wrap"``` or ```a, b, "@%"```
+a % b	 (Floored)				| ```a, b, "@mod"```
+-a								| ```a, "@neg"```
+map n from (x,y) to (u,v)		| ```n, x, y, u, v, "@map"```
+a > b							| ```a, b, "@>"``` 
+a >= b							| ```a, b, "@>="```
+a < b							| ```a, b, "@<"``` 
+a <= b							| ```a, b, "@<="```
+a == b							| ```a, b, "@=="``` 
+a != b							| ```a, b, "@!="```
+a and b							| ```a, b, "@and"``` 
+a or b							| ```a, b, "@or"``` 
+not a							| ```a, "@not"``` 
+
+Note: division, modulo or wrap by zero will return zero.
+
+There are only a limited number of built-in sounds, for convenience:
+
+Sound				 			| Format 
+:--- 							| :---
+string							| ```freq, amp, @pluck-note``` or ```@pluck```
+bass							| ```freq, amp, @bass-note``` or ```@bass```
+conga							| ```freq, amp, @conga-note``` or ```@conga```
+tom								| ```freq, amp, @tom-note```   or ```@tom```
+kick							| ```amp, @kick-note```  or ```@kick```
+snare							| ```amp, @snare-note``` or ```@snare```
+hat								| ```amp, @hat-note```   or ```@hat```
+
+There are several instructions for talking to external applications.
+
+Message:						| Format
+:--- 							| :---
+MIDI note						| ```pitch, velocity, channel, duration, @note```
+MIDI note on					| ```pitch, velocity, channel, @note-on```
+MIDI note off					| ```pitch, velocity, channel, @note-off```
+MIDI controller					| ```controller, value, channel, @cc```
+Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
+
+
+
+## Test area
+
+Type any pattern into the text box below and click to run it.  
+
+<textarea class="CodeMirror" onclick="seq.play_element_value(this)">["@pluck"]</textarea>
+<button class="button-primary" onclick="seq.clear()">Stop</button>
+
+</script>
+
+<!-- Page section content in Markdown: -->
+<script type="markdown" id="editor" data-title="Editor">
+
+
+</script>
+
+
+<script>
+////////////////////////////////////////////////////////////////////////////////////////
+// Generate page content
+// Uses Marked https://github.com/chjj/marked
+////////////////////////////////////////////////////////////////////////////////////////
+
+var marked_renderer = new marked.Renderer();
+// insert a bit of extra logic to the renderer to pull out heading links:
+marked_renderer.table_of_contents = [];
+marked_renderer.heading = function(text, level, raw) {
+    var anchor = this.options.headerPrefix + raw.toLowerCase().replace(/[^\w]+/g, '-');
+    if (level > 1) {
+		marked_renderer.table_of_contents.push(
+			"\t".repeat(level-2) 
+			+ "- [" + text + "](#" + anchor + ")"
+		);
+	}
+    return '<h' + level + ' id="' + anchor + '">'
+        + text
+        + '</h' + level + '>\n';
+};
+
+marked.setOptions({
+	gfm: true,
+	tables: true,
+	sanitize: false,
+	smartLists: true,
+	smartypants: false,
+	// custom renderer used to pull out table of contents:
+	renderer: marked_renderer,	
+	// custom highlighter for PEG grammars:
+	highlight: function (code, lang) {
+		if (lang == "peg") {
+			try {
+				var a = pegjs_pegjs.parse(code);
+				for (var i=0; i<a.length; i++) {
+					switch (a[i].type) {
+					case "js": a[i] = hljs.highlight("js", a[i].text).value; break;
+					case "comment": a[i] = '<span class="hljs-comment">' + a[i].text + "</span>"; break;
+					case "argument": a[i] = a[i].text; break;
+					case "ruledef": a[i] = '<span class="hljs-type">' + a[i].text + "</span>"; break;
+					case "rulename": a[i] = '<span class="hljs-variable">' + a[i].text + "</span>"; break;
+					case "string": a[i] = '<span class="hljs-string">' + a[i].text + "</span>"; break;
+					case "range":
+					case "operator": a[i] = '<span class="hljs-regexp">' + a[i].text + "</span>"; break;
+					}
+				}
+				return a.join("");
+			} catch(e) {
+				console.log("ERROR", e.message, code);
+			}
+		}
+		// fallback:
+		return hljs.highlight(lang, code).value;
+	},
+});
+
+// for each script section of class markdown:
+$('script[type="markdown"]').each(function() {
+	var id = $(this).attr("id");
+	var section_id = "section-"+id;
+	var title = $(this).attr("data-title");
+	// add menu button:
+	if (title) {
+		var button = '<a href="#section-'+ id +'" class="button">' + title + '</a>\n';
+		$("#menu").append(button);
+	}
+	// reset renderer:
+	marked_renderer.table_of_contents = []; 
+	// add section HTML:
+	var html = marked($("#" + id).html());
+	// prefix table of contents:
+	html = marked(marked_renderer.table_of_contents.join("\n")) + html;
+	// wrap in section:
+	html = "<section id='"+section_id+"' class='tab'>" + html + "</section>";
+	// insert:
+	$("#main_body").append(html);
+	//console.log(html);
+});
+
+// make any editor regions executable:
+$(".lang-javascript").each(function() {
+	$(this).click(function() { window.seq.play_element_text(this); });
+});
+
+window.onhashchange = function() {
+	var hash = "#"+window.location.hash.substr(1);
+	if (hash == "#") hash = "#section-introduction";
+	// find containing section:
+	var dst = $(hash);
+	if (dst.length) {
+		var sec = dst.closest("section");
+		if (sec.length) {
+			// show chosen tab:
+			$('.tab').removeClass('active').addClass('hidden');
+			$(sec).addClass('active').removeClass('hidden');
+			// highlight corresponding link
+			$('a.button').removeClass('button-primary');
+			$('a.button[href="'+hash+'"]').addClass('button-primary');
+		}
+	}
+};
+window.onhashchange();
+
+</script>
+</body>
+</html>
