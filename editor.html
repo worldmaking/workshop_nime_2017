@@ -69,6 +69,7 @@ table { width:100%; }
 			<option>default</option>
 		  </select>  
 			<button id="saveBtn" class="button-primary" style="margin-left:3em">save</button>
+			<button id="downloadBtn" class="button-primary" style="margin-left:3em">download</button>
 
 		  <span style="display:inline-block; width:5em">&nbsp;</span>
 		  <label style="display:inline">MIDI Output</label>
@@ -235,9 +236,27 @@ var tracer = {
 
 function execute(text) {
 	var res = parser.parse(text, { trace: tracer });
-  window.seq.define(uid(), res); 
-  out_div.innerText = JSON.stringify(res);
+  	window.seq.define(uid(), res); 
+  	out_div.innerText = JSON.stringify(res);
 }	
+
+$("#downloadBtn").click(function() {
+	var code = peged.getValue();
+	var p = PEG.buildParser(code, { output: "source" });
+	var blob = new Blob([p], {
+		type: "text/plain;charset=utf-8;",
+	});
+	// oh, the hack!
+	var a = window.document.createElement('a');
+	a.href = window.URL.createObjectURL(blob, {type: 'text/plain;charset=utf-8'});
+	a.download = 'grammar.js';
+	// Append anchor to body.
+	document.body.appendChild(a);
+	// fake-click it
+	a.click();
+	// Remove anchor from body
+	document.body.removeChild(a);
+});
 
 var parseCount = 0
 function parse() {

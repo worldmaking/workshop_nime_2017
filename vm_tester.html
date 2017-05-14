@@ -37,12 +37,17 @@ img { width: 100%; max-width: 100%; }
 <div class="container">
 	<div class="row" style="margin-top: 5%">
 		<div class="full column" id="main_body">
+		
+			<div id="time">0</div>
+			<hr>
 
 <textarea class="vm">[{x:1}, "@print"]</textarea>
 
+<textarea class="vm">["@time", "@print"]</textarea>
+
 <textarea class="vm">[1, "@print", 1, "@wait", 2, "@print"]</textarea>
 
-<textarea class="vm">["@loop", ["t", "@print", 1, "@wait"]]</textarea>
+<textarea class="vm">["@loop", ["@time", "@print", 1, "@wait"]]</textarea>
 
 
 		</div>
@@ -73,9 +78,12 @@ img { width: 100%; max-width: 100%; }
 // For every vm class object (typically a textarea) on the page,
 // assign event handlers to trigger the code in a VM
 $(".vm").each(function() {
+	// every textarea should have a unique but stable name
+	var name = VM.uid("code");
+	$(this).attr("id", name);
 	$(this).keyup(function() { vm_execute_element(this); });
 	$(this).focus(function() { vm_execute_element(this); });
-	$(this).after('<code class="result"></code>');
+	$(this).after('<code class="result"></code><div class="name">' + name + '</div><button class="button-primary">stop</button><hr>');
 	//vm_execute_element(this, true);
 });
 
@@ -85,6 +93,11 @@ var options = {};
 const last = a => a[a.length - 1];
 
 var scheduler_lib = {
+
+	// get current process's time (in terms of pulse)
+	"@time": ({ stack, time }) => stack.push(time),
+
+	// loop subsequent pattern indefinitely
     "@loop": proc => {
 		const { operations, error } = proc;
 		const pattern = operations.pop();
@@ -94,6 +107,9 @@ var scheduler_lib = {
 			error("@loop", ERR_EXPECT_PATTERN, pattern);
 		}
     },
+    
+    // @forever reschedules itself and its pattern
+    // essentially a helper to implement @loop
     "@forever": ({ operations, error }) => {
 		const pattern = last(operations);
 		if (Array.isArray(pattern) && pattern.length) {
@@ -103,9 +119,18 @@ var scheduler_lib = {
 			error("@forever", ERR_EXPECT_PATTERN, pattern);
 		}
 	},
+	
+	// yield (pause) the current process for a period (in pulse)
     "@wait": proc => {
     	proc.wait(Math.abs(Number(proc.stack.pop())))
     },
+    
+    // wait until next beat
+  	"@sync": proc => {
+  		proc.wait(Math.floor(proc.time) + 1 - proc.time);
+  	},
+  	
+  	// fork another process with a pattern
     "@fork": proc => {
 		const { operations, error } = proc
 		let pattern = operations.pop()
@@ -115,6 +140,8 @@ var scheduler_lib = {
 			error("@fork", ERR_EXPECT_PATTERN, pattern)
 		}
     },
+    
+    // fork an infinite loop and give it a name
     "@spawn": proc => {
       const { stack, operations, error } = proc
       const name = stack.pop()
@@ -128,15 +155,19 @@ var scheduler_lib = {
         vm.fork(name, proc, ["@forever", pattern])
       }
     },
+    
+    // stop all processes
     "@stop-all": proc => vm.stopAll(),
+    
+    // stop a named process
     "@stop": ({ stack }) => vm.stop(stack.pop())
 }
 
 const log = console.log;
 var debug_lib = {    
     "@print": proc => {
-		const { stack, id, time } = proc;
-		log("@print", stack.length ? stack.pop() : "<empty stack>", "(id, time)", id, time);
+		const { stack, name, time } = proc;
+		log("@print", stack.length ? stack.pop() : "<empty stack>", name + "@" + time);
     },
 }
 
@@ -155,25 +186,39 @@ var requestInterval = function(a,b){var c=Date.now,d=window.requestAnimationFram
 
 requestInterval(function() {
 	vm.resume(1);
+	$("#time").text(vm.time);
 }, 1000);
 
 // element is the source html element
 function vm_execute_element(element, noplay) {
 	var input_element = $(element);
 	var code = input_element[0].value;
-	var output_element = $(element).next( ".result" );
+	var output_element = $(element).nextAll( ".result" ).first();
 	var result = "";
 	try {
 		// first convert the code into 
 		var list = json_parse_relaxed(code);
 		
+		// get name:
+		var name = input_element.attr("id");
 		
-		vm.run(json_parse_relaxed(code));
-		//vm.run(JSON.parse(code));
-		//vm.resume();
+		var proc = vm.run(json_parse_relaxed(code), name);
+		console.log(proc);
 		
 		// show it:
 		output_element.text(JSON.stringify(list));
+		
+		var name_element = $(element).nextAll( ".name" ).first();
+		name_element.text(proc.name);
+		
+		// enable stop button
+		var stop_element = $(element).nextAll( ".button-primary" ).first();
+		console.log(stop_element);
+		stop_element.click(function() {
+			console.log("stop", proc.name);
+			vm.stop(proc.name);
+		});
+		
 		
 	} catch(ex) {
 		//console.log(ex.message);

@@ -128,7 +128,8 @@ class Context {
 
 class Process {
 	constructor(name, commands, program, context, time, rate) {
-		this.id = name;
+		if (!name) { name = uid("proc"); }
+		this.name = name;
 		this.commands = commands;
 		// a stack of values for operations
    		this.stack = [];
@@ -187,7 +188,7 @@ class Process {
 	
 	// an utility function to write errors
 	error (instr, msg, obj) {
-		console.error(instr, msg, obj, "id", this.id, "time", this.time)
+		console.error(instr, msg, obj, "name", this.name, "time", this.time)
 	}
 };
 
@@ -201,7 +202,7 @@ class VM {
 		}
 		//this.bpm = 100;
 		//this.bpm2bpa = 1./(60*sr); // multiplier to convert bpm to beats per audio sample
-		this.name = uid("vm-");
+		this.name = uid("vm");
 		this.time = 0;
 		this.procs = [];	// priority list of Processes, first due at top of stack
 		this.procsByName = {};
@@ -221,10 +222,10 @@ class VM {
 	}
 	
 	// Run a program
-	run (program, sync = true) {
-		// if there are no processes, no need to sync
-		if (sync && this.procs.length) { program = ["@sync", program]; }
-		return this.fork(null, this.context, program);
+	run (program, name) {
+		// wrap with @sync to synchronize new programs to the pulse
+		program = ["@sync", program]; 
+		return this.fork(name, this.context, program);
 	}
 	
 	// Create a new process
@@ -234,7 +235,6 @@ class VM {
    		if (!rate && parent) rate = parent.rate;
    		// if has parent try to use it's context
     	const context = parent ? parent.context || parent : undefined;
-		if (!name) { name = uid("proc-"); }
     	// create the new process and insert into the process stack
     	const proc = new Process(name, this.commands, program, context, time, rate);
     	this.insert(proc, this.procs)
@@ -288,8 +288,7 @@ class VM {
 		this.time = nextTime;
 		
 		//console.log("procs:", procs.length, this.at(procs), this.time);
-		
-		console.log("time", this.time);
+		//console.log("time", this.time);
 		
 		return procs.length > 0;
 	}
@@ -301,16 +300,17 @@ class VM {
 	}
   	
   	// The stop function can stop a proccess by name or by object
-	stop (id) {
+  	// TODO: problem is that this doesn't stop all child processes
+	stop (name) {
 		let proc;
-		if (typeof id === "string") {
-			proc = this.procsByName[id]
-		  	this.procsByName[id] = null
+		if (typeof name === "string") {
+			proc = this.procsByName[name]
+		  	this.procsByName[name] = null
 		} else {
-		  	proc = id
-		  	id = null
+		  	proc = name
+		  	name = null
 		}
-		//if (this.onstop) this.onstop({ id, proc })
+		//if (this.onstop) this.onstop({ name, proc })
 		this.remove(proc, this.procs);
 	}
 	
@@ -331,6 +331,9 @@ class VM {
     	this.procs.length = 0;
   	}
 }
+
+// public:
+VM.uid = uid;
 
 var bpm = 100;	// somehow need to make this globally modifiable
 var bpm2bpa = 1./(60*sr); // multiplier to convert bpm to beats per audio sample

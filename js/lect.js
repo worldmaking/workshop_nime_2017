@@ -187,19 +187,19 @@ external = {
 	t: 0,
 }
 
-kick = new Gibberish.Kick({ decay:.2 }).connect();
-snare = new Gibberish.Snare({ snappy: 1.5 }).connect();
-hat = new Gibberish.Hat({ amp: 1.5 }).connect();
-conga = new Gibberish.Conga({ amp:.25, freq:400 }).connect();
-tom = new Gibberish.Tom({ amp:.25, freq:400 }).connect();
-strings = new Gibberish.PolyKarplusStrong({maxVoices: 32}).connect();
+kick = new Gibberish.Kick({ decay:.2 });
+snare = new Gibberish.Snare({ snappy: 1.5 });
+hat = new Gibberish.Hat({ amp: 1.5 });
+conga = new Gibberish.Conga({ amp:.25, freq:400 });
+tom = new Gibberish.Tom({ amp:.25, freq:400 });
+strings = new Gibberish.PolyKarplusStrong({maxVoices: 32});
 bass = new Gibberish.MonoSynth({ 
   attack:44, 
   decay:Gibberish.Time.beats( .25 ),
   filterMult:.25,
   octave2:0, 
   octave3:0
-}).connect()
+});
 
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -415,7 +415,9 @@ ws_connect();
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // exported:
-window.seq = {};
+window.seq = {
+	commands: {},
+};
 
 // dictionary of active sequencers.
 window.sequencers = {};
@@ -450,7 +452,24 @@ cq.resume = function(t) {
 	return this;
 }
 
-Gibberish.sequencers.push(cq);
+function audio_reset() {
+	kick.connect();
+	snare.connect();
+	hat.connect();
+	conga.connect();
+	tom.connect();
+	strings.connect();
+	bass.connect();
+	
+	Gibberish.sequencers.push(cq);
+}
+
+audio_reset();
+
+window.seq.addCommand = function(name, impl) {
+	this.commands[name] = impl;
+	//console.log("commands", name, this.commands[name]);
+}
 	
 // clear all sequencers (e.g. STOP button) -- immediate
 window.seq.clear = function() {
@@ -1252,7 +1271,7 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 			
 			// [pitch, velocity, channel, "@note-on"]
 			case "@note-on": {
-				var chan = +this.stack.pop();
+				var chan = Math.min(0, +this.stack.pop() - 1);
 				var vel = +this.stack.pop();
 				var pitch = +this.stack.pop();
 				
@@ -1265,7 +1284,7 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 				
 			// [pitch, velocity, channel, "@note-off"]
 			case "@note-off": {
-				var chan = +this.stack.pop();
+				var chan = Math.min(0, +this.stack.pop() - 1);
 				var vel = +this.stack.pop();
 				var pitch = +this.stack.pop();
 				
@@ -1279,7 +1298,7 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 			// [pitch, velocity, channel, duration, "@note"]
 			case "@note": {
 				var dur = +this.stack.pop();
-				var chan = +this.stack.pop();
+				var chan = Math.min(0, +this.stack.pop() - 1);
 				var vel = +this.stack.pop();
 				var pitch = +this.stack.pop();
 				
@@ -1299,7 +1318,7 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 					
 			// [controller, value, channel, "@cc"]
 			case "@cc": {
-				var chan = +this.stack.pop();
+				var chan = Math.min(0, +this.stack.pop() - 1);
 				var value = +this.stack.pop();
 				var controller = +this.stack.pop();
 				
@@ -1408,8 +1427,19 @@ Send n arguments over websocket	| ```arg1, arg2..., "@ws-n"```
 				
 				
 			default:
-				console.error("unknown instruction operator:", op);
-				return;
+				// look up a dynamic rule?
+				var cmd = window.seq.commands[op];
+				//console.log("cmd", op, cmd);
+				if (cmd && typeof(cmd) == "function") {
+					try {
+						cmd(this);
+					} catch (ex) {
+						console.error(ex.message);
+					}
+				} else {
+					console.error("unknown instruction operator:", op);
+				}
+				break;
 			}
 		} else {
 			this.stack.push(item);
@@ -1442,6 +1472,8 @@ Gibberish.getSeq = function() {
 //////////////////////////////////////////////////////////////////////////////////////////
 // BUILDERS
 //////////////////////////////////////////////////////////////////////////////////////////
+
+function addCommand(name, impl) { window.seq.addCommand(name, impl); }
 
 function define(name, patt) {
 	// create a new sequence:
