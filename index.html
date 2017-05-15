@@ -39,16 +39,16 @@ img { width: 100%; max-width: 100%; }
 <button onclick="window.location.href='vm.html'">Target language</button>
 <button onclick="window.location.href='editor.html'">Editor</button>
 
-<div class="iframe-container-16x9">
-  <iframe frameborder=0 src="https://www.youtube.com/embed/3T8MrcPQ9HY?rel=0" allowfullscreen></iframe>
-</div>
+In this workshop participants will design and develop idiosyncratic (perhaps even esoteric) languages for live coding. 
+ 
+The notion of the programming language being a musical instrument is particularly well established within live coding research. Performers and live coders have utilized languages with features specially oriented to the domain of computer music. Languages work by reframing the terms of work into affordances and constraints relevant to the domain, making them more readily available and discoverable. Thus many performers and live coders have explored designing new “mini-languages” to serve as scaffolds for externalising musical thinking, through which we can be more able to engage directly with music through high-level representations. Some are so idiosyncratic and model-constrained to be considered initiating a miniature genre or compositional form.
 
-> In this workshop participants will design and develop a idiosyncratic (perhaps even esoteric) language for live coding. These languages will be designed and run in a readily-accessible browser-based code editor, using open-source software we provide. The workshop will give a gentle introduction to the construction of grammars for parsing, using friendly browser-based libraries, with which participants will design their own mini-languages for defining musical patterns. No experience in any of these specific technologies is necessary. However, some programming experience will be helpful. An open-source browser-based editing environment and support library will be provided to participants. This environment leverages the codemirror and peg.js projects, and can dynamically evaluate code to communicate via websockets with other platforms for generating audiovisual content. We will reserve time for participants to experiment with other languages created in the workshop, so that they can obtain feedback and inspiration from each other. Participants will leave with the knowledge required to continue development of their language on their own.
-
-
+In this workshop participants will create mini-languages via a readily-accessible browser-based code editor, using open-source software we provide. The workshop will give a gentle introduction to the construction of grammars for parsing, using friendly browser-based libraries, with which participants will design their own mini-languages for defining musical patterns. No experience in any of these specific technologies is necessary. However, some programming experience will be helpful (especially in JavaScript). An open-source browser-based editing environment and support library will be provided to participants. This environment leverages the codemirror and peg.js projects, and can dynamically evaluate code to communicate via websockets with other platforms for generating audiovisual content. We will reserve time for participants to experiment with other languages created in the workshop, so that they can obtain feedback and inspiration from each other. Participants will leave with the knowledge required to continue development of their language on their own.
 
 
+**We recommend using the [Google Chrome](https://support.google.com/chrome/answer/95346?co=GENIE.Platform%3DDesktop&hl=en-GB) browser for this workshop.**
 
+---
 
 We're going to design languages for live coding. We don't have much time, so they're going to have to be simple, but that doesn't mean they can't be unusual ([for inspiration, look at this list of esoteric languages here](https://esolangs.org/wiki/Language_list)). Our languages are going to be input as raw text, and our job is to build the parser that can understand this text. Parsing is the general problem of turning raw text into meaningfully-structured data and/or actions, such as sonic events. 
 
@@ -61,6 +61,11 @@ As language creators, we need to decide what kinds of text fragments will turn i
 2. **What kinds of actions can we make?** For this workshop, the kinds of actions we can make are instrument note triggers, instrument parameter changes, scheduling of events, and some other things. We can learn about what kinds of things we can generate by [looking at our target language here](vm.html).
 	
 3. **How to specify the mapping between text and action?** We'll work on new mappings by live coding in [the editor](editor.html)
+
+<div class="iframe-container-16x9">
+  <iframe frameborder=0 src="https://www.youtube.com/embed/3T8MrcPQ9HY?rel=0" allowfullscreen></iframe>
+</div>
+
 
 ---
 
