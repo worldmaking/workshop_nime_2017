@@ -1,5 +1,6 @@
 window.MIDI = {
   channels: [],
+  output: null,
 
   init() {
     const midiPromise = navigator.requestMIDIAccess()
@@ -152,7 +153,8 @@ window.MIDI = {
   },
 
   send( msg, timestamp ) {
-    MIDI.output.send( msg, timestamp )
+    if( MIDI.output !== null )
+      MIDI.output.send( msg, timestamp )
   },
 
   handleMsg( msg ) {
