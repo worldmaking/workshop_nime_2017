@@ -31,6 +31,7 @@
 /* see http://getskeleton.com/ */
 html { font-size: 50%; } 
 table { width:100%; }
+img { width: 100%; max-width: 100%; }
 .input { 
 	min-height: 1em; width:50%; max-width: 50%; 
 	font-family: monospace;
@@ -65,9 +66,13 @@ h1, h2, h3, h4, h5, h6, pre {
 
 <div id="toc"></div>
 
+
+
 **In any of the examples below, you can edit the input text and see the output immediately.**
 
 ---
+
+
 
 ## The most common grammar concepts
 
@@ -76,6 +81,11 @@ We write grammars as a set of pattern-based rules. A rule has:
 - a **name**, so that you can refer to it elsewhere, 
 - a **pattern**, which defines what kinds of text it can recognize,
 - an optional **action**, which defines what is returned when a rule applies.
+
+
+
+![rule](img/grammar.png)
+
 
 The simplest grammar has only one rule, and the simplest kind of rule looks like this:
 
@@ -427,15 +437,21 @@ That's nearly all the important concepts. There's a handful of other trickier on
 
 ---
 
+
+---
+
 ## Common JavaScript techniques for actions
 
-A rule action are just the body of JavaScript function, with named rule elements being available as if they were function arguments. The arguments corresponding to *one-or-more* and *zero-or-more* patterns are always arrays. Pretty much every other pattern argument becomes a string. JavaScript has [lots of useful functions for working with [arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) and [strings](https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/String). Below are some useful idioms.
+A rule action are just the body of JavaScript function, with named rule elements being available as if they were function arguments. The arguments corresponding to *one-or-more* and *zero-or-more* patterns are always arrays. Pretty much every other pattern argument becomes a string. JavaScript has [lots of useful functions for working with [arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array) and [strings](https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/String). For common operations on numbers, see the [Math documentation](https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Math).
+
+Below are some useful idioms:
 
 - Convert a string to a number with ```+text```.  
 - Read an individual character from a string ```text``` with ```text[n]```.
 - Convert a string ```text``` into an array of single characters with ```Array.from(text)```.
 - Concatenate strings with ```+```, e.g. ```"a" + "b"``` makes ```"ab"```. 
 - Check if ```x``` is an array with ```Array.isArray(x)```. 
+- Reverse an array with ```.reverse()```
 
 Get length (works with both arrays and strings). E.g. useful when mapping string length to pattern timing:
 
@@ -497,8 +513,15 @@ start = letters:[a-z]* {
 
 <textarea class="input">abc</textarea>
 
+Use backquote strings for easy template interpolation (*note this is not a single-quote character but a back-tick quote character*):
 
+```peg
+start = first:[0-9] second:[0-9] { 
+	return `${first} and ${first} makes ${second}`
+}
+```
 
+<textarea class="input">24</textarea>
 
 ---
 

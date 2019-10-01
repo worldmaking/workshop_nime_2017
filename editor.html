@@ -173,8 +173,8 @@ var peg_text = [
 var body = document.getElementById('sourcetext').innerText;
 
 if(! /chrom(e|ium)/.test(navigator.userAgent.toLowerCase())){	
-	body += '### The editor does not work in your browser, try using [Chrome](www.google.ca/chrome).';
-	$("#whole_editor_container").hide();
+	body += '### The editor might not work in your browser, try using [Chrome](www.google.ca/chrome).';
+	//$("#whole_editor_container").hide();
 	
 	
 }
@@ -253,7 +253,7 @@ var tracer = {
 
 function execute(text) {
 	var res = parser.parse(text, { trace: tracer });
-  	window.seq.define(uid(), res); 
+  	window.seq.define("default", res); 
   	out_div.innerText = JSON.stringify(res);
 }	
 

@@ -222,70 +222,73 @@ var host = querystring.host || 'localhost',
     port = querystring.port || '8080';
 
 function ws_connect() {
+	try {
+	  if ('WebSocket' in window) {
+		var address = "ws://" + host + ":" + port + "/";
+		var ws = new WebSocket(address);
+		ws.onopen = function(ev) {     
 
-  if ('WebSocket' in window) {
-    var address = "ws://" + host + ":" + port + "/";
-    var ws = new WebSocket(address);
-    ws.onopen = function(ev) {     
+		  wsocket = ws;
 
-      wsocket = ws;
+		  console.log('CONNECTED to ' + address);
+		  // cancel the auto-reconnect task:
+		  if (connectTask != undefined) clearInterval(connectTask);
+		  // apparently this first reply is necessary
+		  //var message = 'hello from browser';
+		  //post('SENT: ' + message);
+		  //wsocket.send(message);
 
-      console.log('CONNECTED to ' + address);
-      // cancel the auto-reconnect task:
-      if (connectTask != undefined) clearInterval(connectTask);
-      // apparently this first reply is necessary
-      //var message = 'hello from browser';
-      //post('SENT: ' + message);
-      //wsocket.send(message);
+		  // send some JSON:
+		  //wsocket.send(JSON.stringify({ "hello": "world" }));
 
-      // send some JSON:
-      //wsocket.send(JSON.stringify({ "hello": "world" }));
+		  // client messages sent with a "*" prefix will have the "*" stripped,
+		  // but the server will broadcast them all back to all other clients
+		  // broadcast a hello:
+		  ws_send("*0 hello");
 
-      // client messages sent with a "*" prefix will have the "*" stripped,
-      // but the server will broadcast them all back to all other clients
-      // broadcast a hello:
-      ws_send("*0 hello");
+		  external.linked = true;
+		};
 
-      external.linked = true;
-    };
+		ws.onclose = function(ev) {
+		  console.log('DISCONNECTED from ' + address);
+		  // set up an auto-reconnect task:
+		  //connectTask = setInterval(ws_connect, 1000);
+		  external.linked = false;
+		};
 
-    ws.onclose = function(ev) {
-      console.log('DISCONNECTED from ' + address);
-      // set up an auto-reconnect task:
-      //connectTask = setInterval(ws_connect, 1000);
-      external.linked = false;
-    };
-
-    ws.onmessage = function(ev) {
-      // was it a dict?
-      if (ev.data.charAt(0) == "{") {
-        // attempt to json parse it:
-        var tree = JSON.parse(ev.data);
-        console.log("parsed " + JSON.stringify(tree));
-      } else {
-        var args = ev.data.split(" ");
-		if (args[1] == "seq") {
-			external.t++;
-			if (external.linked) {
-				if( typeof window.seq === 'object' && typeof window.seq.external_resume === 'function' ) {
-					window.seq.external_resume();
+		ws.onmessage = function(ev) {
+		  // was it a dict?
+		  if (ev.data.charAt(0) == "{") {
+			// attempt to json parse it:
+			var tree = JSON.parse(ev.data);
+			console.log("parsed " + JSON.stringify(tree));
+		  } else {
+			var args = ev.data.split(" ");
+			if (args[1] == "seq") {
+				external.t++;
+				if (external.linked) {
+					if( typeof window.seq === 'object' && typeof window.seq.external_resume === 'function' ) {
+						window.seq.external_resume();
+					}
 				}
+			} else if (ev.data.substr(0, 4) == "get ") {
+			  external.t = +ev.data.substr(4);
+			  if (external.linked) {
+				if( typeof window.seq === 'object' && typeof window.seq.external_resume === 'function' ) {
+				  window.seq.external_resume();
+				}
+			  }
+			} else {    		
+			  console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
 			}
-		} else if (ev.data.substr(0, 4) == "get ") {
-          external.t = +ev.data.substr(4);
-          if (external.linked) {
-            if( typeof window.seq === 'object' && typeof window.seq.external_resume === 'function' ) {
-              window.seq.external_resume();
-            }
-          }
-        } else {    		
-          console.log("received msg:" + ev.data.length + ": " + ev.data.substr(0, 50));
-        }
-      }
-    };
+		  }
+		};
 
-  } else {
-    console.log("WebSockets are not available in this browser!!!");
+	  } else {
+		console.log("WebSockets are not available in this browser!!!");
+	  }
+  } catch (ex) {
+  	console.log(ex.message);
   }
 }
 

@@ -1,16 +1,19 @@
 window.MIDI = {
   channels: [],
   output: null,
+  capable:null,
 
   init() {
-    const midiPromise = navigator.requestMIDIAccess()
-      .then( midiAccess => {
+    if( typeof navigator.requestMIDIAccess === 'function' ) {
+      const midiPromise = navigator.requestMIDIAccess()
+        .then( midiAccess => {
 
-        MIDI.midiOutputList = document.querySelector( '#midiMenu' )
-        MIDI.midiAccess = midiAccess
-        MIDI.createInputAndOutputLists( midiAccess )
-        MIDI.openLastUsedPorts()
-      }, ()=> console.log('midi access failure') )
+          MIDI.midiOutputList = document.querySelector( '#midiMenu' )
+          MIDI.midiAccess = midiAccess
+          MIDI.createInputAndOutputLists( midiAccess )
+          MIDI.openLastUsedPorts()
+        }, ()=> console.log('midi access failure') )
+    }
 
     //this.midiInputList = document.querySelector( '#midiInputSelect' )
 
