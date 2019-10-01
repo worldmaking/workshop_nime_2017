@@ -40,6 +40,13 @@
 /* see http://getskeleton.com/ */
 html { font-size: 50%; } 
 table { width:100%; }
+@media (min-width: 550px) {
+  .container {
+    width:95% !important;
+    max-width:100%;
+  }
+}
+.footer { margin-left:0 !important}
 </style>
 </head>
 <body>
@@ -56,7 +63,7 @@ table { width:100%; }
 </script>
 
 <div class="container">
-	<div class="row" style="margin-top: 25%">
+	<div class="row" style="margin-top: 5%">
 		<div class="full column" id="main_body">
 		</div>
 	</div>
@@ -89,17 +96,22 @@ table { width:100%; }
 				<h4>Input:</h4>
 				<code>Ctrl-Enter</code> or <code>Cmd-Enter</code> to parse the currently selected text:
 
-	<textarea id="ed"></textarea>
+	      <textarea id="ed"></textarea>
 
 				<div id="ed_msg"></div>
-				<hr/>
-				<button class="button-primary" id="ed_start">Start</button>
-				<button class="button-primary" id="ed_stop">Stop</button>
-				<h4>Output:</h4>
-				<div id="output"></div>
-				<hr/>
 			</div>
 		</div>
+    <div class="row footer">
+      <hr/>
+      <div class="one-half column footer">
+				<button class="button-primary" id="ed_start">Start</button>
+				<button class="button-primary" id="ed_stop">Stop</button>
+      </div>
+      <div class="one-half column footer">
+ 				<h4>Output:</h4>
+				<div id="output"></div>
+      </div>
+    </div>
 	</div>
 </div>
 
